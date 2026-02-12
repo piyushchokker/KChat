@@ -42,7 +42,7 @@ export default function StudentLayout({
   const firstName = user?.name?.split(" ")[0] || "Student";
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
+    <div className="flex h-screen flex-col bg-gray-50">
       <UniversityHeader
         subtitle="Student Assistant"
         rightContent={
@@ -83,7 +83,7 @@ export default function StudentLayout({
           </div>
         }
       />
-      <main className="flex flex-1 flex-col">{children}</main>
+      <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
     </div>
   );
 }

@@ -42,7 +42,7 @@ export default function RegistrarLayout({
   const firstName = user?.name?.split(" ")[0] || "Registrar";
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
+    <div className="flex h-screen flex-col bg-gray-50">
       <UniversityHeader
         subtitle="Registrar Office · Document Management"
         rightContent={
@@ -83,7 +83,7 @@ export default function RegistrarLayout({
           </div>
         }
       />
-      <main className="flex flex-1 flex-col">{children}</main>
+      <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
     </div>
   );
 }

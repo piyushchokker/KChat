@@ -45,7 +45,7 @@ export default function ChatContainer() {
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="relative flex flex-1 flex-col">
+    <div className="relative flex flex-1 flex-col overflow-hidden">
       {/* Background image */}
       <div className="pointer-events-none absolute inset-0 z-0">
         <Image
@@ -57,7 +57,7 @@ export default function ChatContainer() {
         />
       </div>
       {/* Messages area */}
-      <div className="relative z-10 flex-1 overflow-y-auto px-4 py-6 sm:px-8">
+      <div className="relative z-10 flex-1 overflow-y-auto px-4 py-4 sm:px-8">
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center gap-6 pt-10">
             <div className="text-center">

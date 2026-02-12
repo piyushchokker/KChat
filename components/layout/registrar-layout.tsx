@@ -46,8 +46,8 @@ export default function RegistrarLayout({
       <UniversityHeader
         subtitle="Registrar Office · Document Management"
         rightContent={
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-white/20 backdrop-blur-md border border-white/30 px-4 py-2 shadow-lg">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:block rounded-lg bg-white/20 backdrop-blur-md border border-white/30 px-4 py-2 shadow-lg">
               <p className="text-sm font-semibold leading-tight">
                 {firstName}
               </p>
@@ -61,9 +61,7 @@ export default function RegistrarLayout({
                   <img
                     src={user.imageUrl}
                     alt={firstName}
-                    width={36}
-                    height={36}
-                    className="rounded-full border-2 border-white/40 object-cover"
+                    className="h-9 w-9 rounded-full border-2 border-white/40 object-cover"
                   />
                 ) : (
                   <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white/40 bg-white/20 text-sm font-bold text-white">

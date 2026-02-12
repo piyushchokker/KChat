@@ -14,13 +14,13 @@ export default function UniversityHeader({
 }: UniversityHeaderProps) {
   return (
     <header 
-      className="flex w-full items-center justify-between px-6 py-3 text-white shadow-md"
+      className="flex w-full items-center justify-between px-3 sm:px-6 py-3 text-white shadow-md"
       style={{
         background: `linear-gradient(to right, #0066ff 0%, #ff0000 100%)`,
       }}
     >
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white p-1 overflow-hidden">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-white p-1 overflow-hidden">
           <Image
             src="/krmu.jpeg"
             alt={`${UNIVERSITY_NAME} Logo`}
@@ -29,8 +29,8 @@ export default function UniversityHeader({
             className="object-contain"
           />
         </div>
-        <div>
-          <h1 className="text-base font-bold leading-tight tracking-wide">
+        <div className="min-w-0">
+          <h1 className="text-sm sm:text-base font-bold leading-tight tracking-wide truncate">
             {UNIVERSITY_NAME}
           </h1>
           {subtitle && (
@@ -38,7 +38,7 @@ export default function UniversityHeader({
           )}
         </div>
       </div>
-      {rightContent && <div>{rightContent}</div>}
+      {rightContent && <div className="shrink-0">{rightContent}</div>}
     </header>
   );
 }

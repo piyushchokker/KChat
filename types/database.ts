@@ -244,6 +244,7 @@ export type Database = {
           email: string
           id: string
           image_url: string | null
+          is_allowed: boolean
           name: string
           program: string | null
           role: string
@@ -258,6 +259,7 @@ export type Database = {
           email: string
           id?: string
           image_url?: string | null
+          is_allowed?: boolean
           name: string
           program?: string | null
           role: string
@@ -272,6 +274,7 @@ export type Database = {
           email?: string
           id?: string
           image_url?: string | null
+          is_allowed?: boolean
           name?: string
           program?: string | null
           role?: string

@@ -34,12 +34,17 @@ export default async function StudentDashboard() {
         roll_number: rollNumber,
       },
       { onConflict: "auth_id" }
-    ).select("image_url").single();
+    ).select("image_url, is_allowed").single();
 
     if (syncError) {
       console.error("[Student Sync Error]", JSON.stringify(syncError, null, 2));
     } else {
       console.log("[Student Synced]", email);
+    }
+
+    // Redirect banned students
+    if (data?.is_allowed === false) {
+      redirect("/student/banned");
     }
 
     imageUrl = data?.image_url ?? undefined;

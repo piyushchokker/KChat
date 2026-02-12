@@ -47,8 +47,8 @@ export default function StudentLayout({
         subtitle="Student Assistant"
         rightContent={
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden sm:block rounded-lg bg-white/20 backdrop-blur-md border border-white/30 px-4 py-2 shadow-lg">
-              <p className="text-sm font-semibold leading-tight">
+            <div className="rounded-lg bg-white/20 backdrop-blur-md border border-white/30 px-3 sm:px-4 py-1.5 sm:py-2 shadow-lg">
+              <p className="text-xs sm:text-sm font-semibold leading-tight">
                 {firstName}
               </p>
             </div>

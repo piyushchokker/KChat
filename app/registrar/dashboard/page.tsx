@@ -35,12 +35,39 @@ export default async function RegistrarDashboard() {
     console.log("[Registrar Synced]", email);
   }
 
+  let imageUrl = data?.image_url ?? undefined;
+
+  // If no image stored yet, try fetching from Microsoft Graph
+  if (!imageUrl) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const providerToken = session?.provider_token;
+      if (providerToken) {
+        const photoRes = await fetch("https://graph.microsoft.com/v1.0/me/photo/$value", {
+          headers: { Authorization: `Bearer ${providerToken}` },
+        });
+        if (photoRes.ok) {
+          const photoBuffer = Buffer.from(await photoRes.arrayBuffer());
+          const contentType = photoRes.headers.get("content-type") || "image/jpeg";
+          const ext = contentType.includes("png") ? "png" : "jpg";
+          const storagePath = `${authUser.id}.${ext}`;
+          await admin.storage.from("avatars").upload(storagePath, photoBuffer, { contentType, upsert: true });
+          const { data: { publicUrl } } = admin.storage.from("avatars").getPublicUrl(storagePath);
+          imageUrl = `${publicUrl}?t=${Date.now()}`;
+          await admin.from("users").update({ image_url: imageUrl }).eq("auth_id", authUser.id);
+        }
+      }
+    } catch (imgErr) {
+      console.error("[Registrar Avatar Fetch]", imgErr);
+    }
+  }
+
   return (
     <RegistrarDashboardClient
       user={{
         name: name || "Registrar",
         email,
-        imageUrl: data?.image_url ?? undefined,
+        imageUrl,
       }}
     />
   );

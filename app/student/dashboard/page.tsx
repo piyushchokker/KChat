@@ -21,6 +21,7 @@ export default async function StudentDashboard() {
   // Roll number = part before "@" in the email (e.g. 2501940081@krmu.edu.in)
   const rollNumber = email.includes("@") ? email.split("@")[0] : null;
   let imageUrl: string | undefined;
+  let isBanned = false;
 
   try {
     const admin = createAdminClient();
@@ -42,9 +43,8 @@ export default async function StudentDashboard() {
       console.log("[Student Synced]", email);
     }
 
-    // Redirect banned students
     if (data?.is_allowed === false) {
-      redirect("/student/banned");
+      isBanned = true;
     }
 
     imageUrl = data?.image_url ?? undefined;
@@ -75,6 +75,11 @@ export default async function StudentDashboard() {
     }
   } catch (err) {
     console.error("[Student Sync Exception]", err instanceof Error ? err.message : String(err));
+  }
+
+  // Redirect banned students (must be outside try/catch because redirect() throws)
+  if (isBanned) {
+    redirect("/student/banned");
   }
 
   return (

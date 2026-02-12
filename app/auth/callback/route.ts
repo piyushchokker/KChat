@@ -50,11 +50,13 @@ export async function GET(request: Request) {
                 .from("avatars")
                 .getPublicUrl(storagePath);
 
-              // Store public URL in users table
-              await admin
+              // Store public URL in users table (use upsert in case user row exists)
+              const updateResult = await admin
                 .from("users")
                 .update({ image_url: `${publicUrl}?t=${Date.now()}` })
                 .eq("auth_id", user.id);
+              
+              console.log("[Auth Callback] Photo stored for", user.email, updateResult.error ? updateResult.error.message : "OK");
             }
           }
         }

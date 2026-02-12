@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" fill="none">
+  <!-- Shield shape -->
+  <path d="M10 5 L30 5 L30 35 L20 45 L10 35 Z" fill="#1e3a8a" stroke="#1e3a8a" stroke-width="1"/>
+  <path d="M12 8 L28 8 L28 33 L20 41 L12 33 Z" fill="white" stroke="#1e3a8a" stroke-width="0.5"/>
+  <!-- Book icon inside shield -->
+  <rect x="16" y="14" width="8" height="10" rx="1" fill="#1e3a8a" opacity="0.8"/>
+  <line x1="20" y1="14" x2="20" y2="24" stroke="white" stroke-width="0.5"/>
+  <!-- Star -->
+  <polygon points="20,10 21,13 24,13 21.5,15 22.5,18 20,16 17.5,18 18.5,15 16,13 19,13" fill="#dc2626" transform="scale(0.6) translate(13,2)"/>
+  <!-- University Name -->
+  <text x="38" y="20" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="13" fill="#1e3a8a">K.R. MANGALAM</text>
+  <text x="38" y="36" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="10" fill="#dc2626" font-style="italic">UNIVERSITY</text>
+</svg>

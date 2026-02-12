@@ -51,9 +51,6 @@ export default function StudentLayout({
               <p className="text-sm font-semibold leading-tight">
                 {firstName}
               </p>
-              <p className="text-xs text-white/90">
-                {user?.email}
-              </p>
             </div>
             <div className="relative" ref={menuRef}>
               <button

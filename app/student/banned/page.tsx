@@ -66,10 +66,10 @@ export default async function StudentBanned() {
           <div className="mt-8 rounded-lg bg-gray-50 border border-gray-200 p-4">
             <p className="text-xs text-gray-500">
               If you believe this is an error, visit the Dean&apos;s Office at{" "}
-              <span className="font-medium text-gray-700">Admin Block, 2nd Floor</span>{" "}
+              <span className="font-medium text-gray-700">B-Block, 2nd Floor</span>{" "}
               or email{" "}
-              <a href="mailto:dean@krmu.edu.in" className="text-blue-600 underline">
-                dean@krmu.edu.in
+              <a href="mailto:dean.soet@krmangalam.edu.in" className="text-blue-600 underline">
+                dean.soet@krmangalam.edu.in
               </a>
             </p>
           </div>

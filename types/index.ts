@@ -114,6 +114,9 @@ export interface UploadedDocument {
   metadata: DocumentMetadata;
   uploadedAt: Date;
   status: "pending" | "processing" | "processed" | "failed";
+  // These fields are present in DB rows and used in frontend
+  title?: string;
+  file_name?: string;
 }
 
 export interface FileProcessingStatus {

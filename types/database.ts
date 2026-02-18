@@ -1,18 +1,3 @@
-      registrar_authentication: {
-        Row: {
-          email: string
-          id: string
-        }
-        Insert: {
-          email: string
-          id?: string
-        }
-        Update: {
-          email?: string
-          id?: string
-        }
-        Relationships: []
-      }
 export type Json =
   | string
   | number

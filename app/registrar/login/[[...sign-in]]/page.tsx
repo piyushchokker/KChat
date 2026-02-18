@@ -4,26 +4,36 @@
 import { useState } from "react";
 import { createBrowserClient } from "@/lib/supabase";
 
+
 export default function RegistrarLoginPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleMicrosoftLogin = async () => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError("");
     setLoading(true);
     const supabase = createBrowserClient();
-    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: "azure",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/registrar/dashboard`,
-        scopes: "openid email profile",
-      },
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
-    if (oauthError) {
-      setError(oauthError.message || "Microsoft login failed");
+    if (loginError) {
+      setError(loginError.message || "Login failed");
+      setLoading(false);
+      return;
+    }
+    // Fetch the current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email === "registraroffice@krmangalam.edu.in") {
+      window.location.href = "/registrar/dashboard";
+    } else {
+      await supabase.auth.signOut();
+      setError("Unauthorized: Only registrar can log in here.");
       setLoading(false);
     }
-    // The redirect will happen automatically if successful
   };
 
   return (
@@ -34,23 +44,40 @@ export default function RegistrarLoginPage() {
         </h2>
         <p className="mt-1 text-xs font-semibold text-red-600">UNIVERSITY</p>
         <h3 className="mt-6 text-xl font-bold text-gray-900">Registrar Login</h3>
-        <p className="mt-2 text-sm text-gray-500">
-          Use your university Microsoft account to continue
-        </p>
-        {error && <div className="text-red-600 text-sm mt-2">{error}</div>}
-        <button
-          onClick={handleMicrosoftLogin}
-          className="mt-8 flex w-full items-center justify-center gap-3 rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1a1a1a] cursor-pointer transition-colors"
-          disabled={loading}
-        >
-          <svg className="h-5 w-5" viewBox="0 0 21 21" fill="none">
-            <rect x="1" y="1" width="9" height="9" fill="#F25022" />
-            <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-            <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-            <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
-          </svg>
-          {loading ? "Redirecting..." : "Continue with Microsoft"}
-        </button>
+        <form className="mt-8 space-y-4" onSubmit={handleLogin}>
+          <div className="text-left">
+            <label htmlFor="email" className="block mb-1 font-medium text-gray-700">Email:</label>
+            <input
+              id="email"
+              type="email"
+              className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div className="text-left">
+            <label htmlFor="password" className="block mb-1 font-medium text-gray-700">Password:</label>
+            <input
+              id="password"
+              type="password"
+              className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+            />
+          </div>
+          {error && <div className="text-red-600 text-sm mt-2">{error}</div>}
+          <button
+            type="submit"
+            className="w-full rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1a1a1a] cursor-pointer transition-colors"
+            disabled={loading}
+          >
+            {loading ? "Logging in..." : "Login"}
+          </button>
+        </form>
       </div>
     </div>
   );

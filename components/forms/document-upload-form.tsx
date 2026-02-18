@@ -10,11 +10,8 @@ const DEFAULT_METADATA: DocumentMetadata = {
   title: "",
   documentType: "policy",
   libraryType: "general",
-  visibility: "public",
-  allowAiUsage: true,
   keywords: [],
   issuingAuthority: "",
-  version: "v1.0",
   effectiveFrom: "",
   effectiveTill: "",
 };

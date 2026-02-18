@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
+import { useState } from "react";
 import Image from "next/image";
 import { createBrowserClient } from "@/lib/supabase";
 import { UNIVERSITY_NAME } from "@/utils/constants";
@@ -11,17 +12,27 @@ export default function LoginForm() {
 
   const role = pathname.startsWith("/registrar") ? "registrar" : "student";
 
-  const handleMicrosoftLogin = async () => {
-    const supabase = createBrowserClient();
-    const redirectPath = role === "registrar" ? "/registrar/dashboard" : "/student/dashboard";
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-    await supabase.auth.signInWithOAuth({
-      provider: "azure",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${redirectPath}`,
-        scopes: "openid email profile User.Read",
-      },
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    const supabase = createBrowserClient();
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
+    if (loginError) {
+      setError(loginError.message || "Login failed");
+      setLoading(false);
+    } else {
+      const redirectPath = role === "registrar" ? "/registrar/dashboard" : "/student/dashboard";
+      window.location.href = redirectPath;
+    }
   };
 
   return (
@@ -51,27 +62,42 @@ export default function LoginForm() {
           </div>
 
           <div className="space-y-5 px-8 py-6">
+
             <div className="text-center">
               <h3 className="text-xl font-bold text-gray-900">
                 {role === "registrar" ? "Registrar Login" : "Student Login"}
               </h3>
               <p className="mt-1 text-sm text-gray-500">
-                Use your university Microsoft account to continue
+                Login with your email and password
               </p>
             </div>
 
-            <button
-              onClick={handleMicrosoftLogin}
-              className="flex w-full items-center justify-center gap-3 rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1a1a1a] cursor-pointer transition-colors"
-            >
-              <svg className="h-5 w-5" viewBox="0 0 21 21" fill="none">
-                <rect x="1" y="1" width="9" height="9" fill="#F25022" />
-                <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-                <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-                <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
-              </svg>
-              Continue with Microsoft
-            </button>
+            <form className="space-y-4" onSubmit={handleLogin}>
+              <input
+                type="email"
+                className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+              />
+              <input
+                type="password"
+                className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+              />
+              {error && <div className="text-red-600 text-sm mt-2">{error}</div>}
+              <button
+                type="submit"
+                className="w-full rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1a1a1a] cursor-pointer transition-colors"
+                disabled={loading}
+              >
+                {loading ? "Logging in..." : "Login"}
+              </button>
+            </form>
 
             <div className="flex justify-center gap-4 text-xs text-gray-400 pt-2">
               <a

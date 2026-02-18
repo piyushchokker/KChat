@@ -146,7 +146,7 @@ export default function DatePicker({
       {isOpen && (
         <div className="absolute top-full left-0 z-50 mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-xl">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 gap-2">
             <button
               type="button"
               onClick={handlePrevMonth}
@@ -157,9 +157,28 @@ export default function DatePicker({
               </svg>
             </button>
 
-            <h3 className="font-semibold text-gray-900">
-              {monthNames[displayDate.getMonth()]} {displayDate.getFullYear()}
-            </h3>
+            {/* Month Dropdown */}
+            <select
+              className="rounded border border-gray-300 bg-white px-2 py-1 text-sm font-medium text-gray-900"
+              value={displayDate.getMonth()}
+              onChange={e => setDisplayDate(new Date(displayDate.getFullYear(), Number(e.target.value), 1))}
+            >
+              {monthNames.map((month, idx) => (
+                <option key={month} value={idx}>{month}</option>
+              ))}
+            </select>
+
+            {/* Year Dropdown */}
+            <select
+              className="rounded border border-gray-300 bg-white px-2 py-1 text-sm font-medium text-gray-900"
+              value={displayDate.getFullYear()}
+              onChange={e => setDisplayDate(new Date(Number(e.target.value), displayDate.getMonth(), 1))}
+            >
+              {Array.from({ length: 100 }, (_, i) => {
+                const year = new Date().getFullYear() - 50 + i;
+                return <option key={year} value={year}>{year}</option>;
+              })}
+            </select>
 
             <button
               type="button"

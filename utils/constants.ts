@@ -160,6 +160,8 @@ export const DOCUMENT_TYPES: { value: DocumentType; label: string }[] = [
   { value: "circular", label: "Circular" },
   { value: "guideline", label: "Guideline" },
   { value: "form", label: "Form" },
+  { value: "directions", label: "Directions" },
+  { value: "professor_details", label: "Professor Details" },
   { value: "other", label: "Other" },
 ];
 

@@ -10,8 +10,21 @@ export default async function RegistrarDashboard() {
     redirect("/registrar/login");
   }
 
-  // Sync user to Supabase on every dashboard load
+  // Create admin client before use
   const admin = createAdminClient();
+
+  // Securely check if the email is in registrar_authentication table
+  const { data: registrarAuth, error: registrarAuthError } = await admin
+    .from("registrar_authentication")
+    .select("email")
+    .eq("email", authUser.email)
+    .single();
+
+  if (registrarAuthError || !registrarAuth) {
+    redirect("/registrar/login?error=unauthorized");
+  }
+
+  // Sync user to Supabase on every dashboard load
   const email = authUser.email ?? "";
   const meta = authUser.user_metadata ?? {};
 

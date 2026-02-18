@@ -43,10 +43,16 @@ export async function POST(req: Request) {
 
     const metadata = JSON.parse(metadataStr);
 
-    // Validate file type
-    if (file.type !== "application/pdf") {
+
+    // Validate file type by extension
+    const allowedExtensions = [
+      ".pdf", ".docx", ".txt", ".md", ".pptx", ".xlsx", ".csv", ".json", ".jsonl", ".html", ".xml", ".doc"
+    ];
+    const fileName = file.name.toLowerCase();
+    const isAllowed = allowedExtensions.some(ext => fileName.endsWith(ext));
+    if (!isAllowed) {
       return NextResponse.json(
-        { error: "Only PDF files are allowed" },
+        { error: "File type not allowed" },
         { status: 400 }
       );
     }
@@ -62,14 +68,16 @@ export async function POST(req: Request) {
     // Create unique storage path
     const timestamp = Date.now();
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const storagePath = `${metadata.libraryType}/${metadata.school || "general"}/${timestamp}_${safeName}`;
+    // Use school or 'general' for storage path, no libraryType
+    const storagePath = `${metadata.school || "general"}/${timestamp}_${safeName}`;
+
 
     // Upload to Supabase Storage
     const fileBuffer = Buffer.from(await file.arrayBuffer());
     const { error: uploadError } = await admin.storage
       .from("documents")
       .upload(storagePath, fileBuffer, {
-        contentType: "application/pdf",
+        contentType: file.type || undefined,
         upsert: false,
       });
 
@@ -96,7 +104,6 @@ export async function POST(req: Request) {
         file_size: file.size,
         storage_path: storagePath,
         document_type: metadata.documentType,
-        library_type: metadata.libraryType,
         applicable_to: metadata.applicableTo || [],
         academic_level: metadata.academicLevel || [],
         school: metadata.school || null,
@@ -105,12 +112,9 @@ export async function POST(req: Request) {
         semester: metadata.semester || null,
         effective_from: metadata.effectiveFrom,
         effective_till: metadata.effectiveTill,
-        visibility: metadata.visibility || "public",
-        allow_ai_usage: metadata.allowAiUsage ?? true,
         keywords: metadata.keywords || [],
         student_intent_mapping: metadata.studentIntentMapping || null,
         issuing_authority: metadata.issuingAuthority,
-        version: metadata.version || "v1.0",
         change_summary: metadata.changeSummary || null,
         academic_year: metadata.academicYear || null,
         uploaded_by: user.id,
@@ -148,7 +152,6 @@ export async function POST(req: Request) {
       metadata: {
         title: doc.title,
         documentType: doc.document_type,
-        libraryType: doc.library_type,
         applicableTo: doc.applicable_to,
         academicLevel: doc.academic_level,
         school: doc.school,
@@ -157,12 +160,9 @@ export async function POST(req: Request) {
         semester: doc.semester,
         effectiveFrom: doc.effective_from,
         effectiveTill: doc.effective_till,
-        visibility: doc.visibility,
-        allowAiUsage: doc.allow_ai_usage,
         keywords: doc.keywords,
         studentIntentMapping: doc.student_intent_mapping,
         issuingAuthority: doc.issuing_authority,
-        version: doc.version,
         changeSummary: doc.change_summary,
         academicYear: doc.academic_year,
       },

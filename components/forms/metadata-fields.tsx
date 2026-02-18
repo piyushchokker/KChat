@@ -21,6 +21,28 @@ export default function MetadataFields({
   const school = SCHOOLS.find((s) => s.id === selectedSchool);
   const courses = school?.courses ?? [];
 
+
+  // Helper: Get max semesters for a course (default 8 for UG, 4 for PG, 2 for Diploma, 10 for Integrated, 6 for PhD)
+  function getMaxSemestersForCourse(courseId: string): number {
+    const allCourses = SCHOOLS.flatMap(s => s.courses);
+    const course = allCourses.find(c => c.id === courseId);
+    if (!course) return 0;
+    switch (course.level) {
+      case "UG": return 8;
+      case "PG": return 4;
+      case "Diploma": return 2;
+      case "Integrated": return 10;
+      case "PhD": return 6;
+      default: return 0;
+    }
+  }
+
+  const semesterOptions = (() => {
+    if (!selectedSchool || selectedSchool === "base" || !metadata.course) return [];
+    const max = getMaxSemestersForCourse(metadata.course);
+    return Array.from({ length: max }, (_, i) => ({ value: String(i + 1), label: `${i + 1}${["st","nd","rd"][i]||"th"} Semester` }));
+  })();
+
   const update = (partial: Partial<DocumentMetadata>) => {
     onChange({ ...metadata, ...partial });
   };
@@ -104,6 +126,20 @@ export default function MetadataFields({
         }
       />
 
+      {/* Semester (course-specific only) */}
+      {selectedSchool && selectedSchool !== "base" && semesterOptions.length > 0 && (
+        <SelectDropdown
+          label="Semester"
+          required
+          options={semesterOptions}
+          placeholder="-- Select Semester --"
+          value={metadata.semester || ""}
+          onChange={e => update({ semester: e.target.value })}
+        />
+      )}
+
+      {/* Removed Directions and Professor Details fields (now only in dropdown) */}
+
       {/* Effective Dates */}
       <div className="grid grid-cols-2 gap-4">
         <DatePicker
@@ -123,52 +159,24 @@ export default function MetadataFields({
       </div>
 
       {/* Visibility */}
-      <SelectDropdown
-        label="Visibility"
-        required
-        options={[
-          { value: "public", label: "Public" },
-          { value: "internal", label: "Internal" },
-          { value: "archived", label: "Archived" },
-        ]}
-        value={metadata.visibility}
-        onChange={(e) =>
-          update({ visibility: e.target.value as DocumentMetadata["visibility"] })
-        }
-      />
+        {/* Removed Visibility Field */}
 
-      {/* Allow AI Usage */}
-      <div className="flex items-center gap-3">
-        <label className="text-sm font-semibold text-gray-700">
-          Allow AI Usage
-        </label>
-        <label className="relative inline-flex cursor-pointer items-center">
-          <input
-            type="checkbox"
-            checked={metadata.allowAiUsage}
-            onChange={(e) => update({ allowAiUsage: e.target.checked })}
-            className="peer sr-only"
-          />
-          <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-800 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300" />
-        </label>
-        <span className="text-sm text-gray-500">
-          {metadata.allowAiUsage ? "Yes" : "No"}
-        </span>
-      </div>
+      {/* Removed Allow AI Usage Field */}
 
       {/* Keywords */}
       <InputField
         label="Keywords / Tags"
         placeholder="e.g., fees, admission, transcript (comma-separated)"
         value={metadata.keywords.join(", ")}
-        onChange={(e) =>
+        onChange={e => update({ keywords: [e.target.value] })}
+        onBlur={e => {
           update({
             keywords: e.target.value
               .split(",")
               .map((k) => k.trim())
               .filter(Boolean),
-          })
-        }
+          });
+        }}
       />
 
       {/* Issuing Authority */}
@@ -179,13 +187,6 @@ export default function MetadataFields({
         onChange={(e) => update({ issuingAuthority: e.target.value })}
       />
 
-      {/* Version */}
-      <InputField
-        label="Version"
-        placeholder="e.g., v1.0"
-        value={metadata.version}
-        onChange={(e) => update({ version: e.target.value })}
-      />
     </div>
   );
 }

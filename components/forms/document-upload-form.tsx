@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import MetadataFields from "./metadata-fields";
 import Button from "@/components/common/button";
-import { useDocumentStore } from "@/store/document-store";
+import useDocumentStore from "@/store/document-store";
 import type { DocumentMetadata } from "@/types";
 
 const DEFAULT_METADATA: DocumentMetadata = {
@@ -66,13 +66,13 @@ export default function DocumentUploadForm() {
               <p className="text-sm font-medium text-gray-600">
                 Click to upload or drag and drop
               </p>
-              <p className="mt-1 text-xs text-gray-400">PDF files only (max 50MB)</p>
+               <p className="mt-1 text-xs text-gray-400">Allowed: PDF, DOCX, TXT, MD, PPTX, XLSX, CSV, JSON, JSONL, HTML, XML, DOC (max 50MB)</p>
             </div>
           )}
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf"
+            accept=".pdf,.docx,.txt,.md,.pptx,.xlsx,.csv,.json,.jsonl,.html,.xml,.doc"
             onChange={handleFileChange}
             className="hidden"
           />

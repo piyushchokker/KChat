@@ -64,6 +64,8 @@ export type DocumentType =
   | "circular"
   | "guideline"
   | "form"
+  | "directions"
+  | "professor_details"
   | "other";
 
 export type LibraryType = "general" | "course-specific";
@@ -78,6 +80,7 @@ export type ApplicableTo =
   | "faculty"
   | "all";
 
+// Removed Visibility type and fields from DocumentMetadata
 export interface DocumentMetadata {
   title: string;
   documentType: DocumentType;
@@ -96,14 +99,13 @@ export interface DocumentMetadata {
   // Common controls
   effectiveFrom: string;
   effectiveTill: string;
-  visibility: Visibility;
-  allowAiUsage: boolean;
+  // Removed allowAiUsage
   keywords: string[];
   studentIntentMapping?: string;
   issuingAuthority: string;
-  version: string;
   changeSummary?: string;
   academicYear?: string;
+  // Removed directions and professorDetails (now only in dropdown)
 }
 
 export interface UploadedDocument {

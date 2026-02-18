@@ -94,7 +94,7 @@ export type Database = {
         Row: {
           academic_level: string[] | null
           academic_year: string | null
-          allow_ai_usage: boolean
+          // removed allow_ai_usage
           applicable_to: string[] | null
           change_summary: string | null
           chunk_count: number | null
@@ -109,7 +109,7 @@ export type Database = {
           id: string
           issuing_authority: string
           keywords: string[] | null
-          library_type: string
+          // removed library_type
           processing_message: string | null
           processing_status: string
           regulation: string | null
@@ -120,13 +120,13 @@ export type Database = {
           title: string
           updated_at: string
           uploaded_by: string | null
-          version: string
-          visibility: string
+          // removed version
+          // removed visibility
         }
         Insert: {
           academic_level?: string[] | null
           academic_year?: string | null
-          allow_ai_usage?: boolean
+          // removed allow_ai_usage
           applicable_to?: string[] | null
           change_summary?: string | null
           chunk_count?: number | null
@@ -141,7 +141,7 @@ export type Database = {
           id?: string
           issuing_authority: string
           keywords?: string[] | null
-          library_type: string
+          // removed library_type
           processing_message?: string | null
           processing_status?: string
           regulation?: string | null
@@ -152,13 +152,13 @@ export type Database = {
           title: string
           updated_at?: string
           uploaded_by?: string | null
-          version?: string
-          visibility?: string
+          // removed version
+          // removed visibility
         }
         Update: {
           academic_level?: string[] | null
           academic_year?: string | null
-          allow_ai_usage?: boolean
+          // removed allow_ai_usage
           applicable_to?: string[] | null
           change_summary?: string | null
           chunk_count?: number | null
@@ -173,7 +173,7 @@ export type Database = {
           id?: string
           issuing_authority?: string
           keywords?: string[] | null
-          library_type?: string
+          // removed library_type
           processing_message?: string | null
           processing_status?: string
           regulation?: string | null
@@ -184,8 +184,8 @@ export type Database = {
           title?: string
           updated_at?: string
           uploaded_by?: string | null
-          version?: string
-          visibility?: string
+          // removed version
+          // removed visibility
         }
         Relationships: [
           {

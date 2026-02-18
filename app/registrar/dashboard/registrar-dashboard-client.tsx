@@ -2,7 +2,7 @@
 
 import RegistrarLayout from "@/components/layout/registrar-layout";
 import DocumentUploadForm from "@/components/forms/document-upload-form";
-import { useDocumentStore } from "@/store/document-store";
+import useDocumentStore from "@/store/document-store";
 
 interface RegistrarDashboardClientProps {
   user: {

@@ -1,17 +1,29 @@
 "use client";
 
+
+import { useState } from "react";
 import { createBrowserClient } from "@/lib/supabase";
 
 export default function RegistrarLoginPage() {
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const handleMicrosoftLogin = async () => {
+    setError("");
+    setLoading(true);
     const supabase = createBrowserClient();
-    await supabase.auth.signInWithOAuth({
+    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "azure",
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=/registrar/dashboard`,
         scopes: "openid email profile",
       },
     });
+    if (oauthError) {
+      setError(oauthError.message || "Microsoft login failed");
+      setLoading(false);
+    }
+    // The redirect will happen automatically if successful
   };
 
   return (
@@ -25,9 +37,11 @@ export default function RegistrarLoginPage() {
         <p className="mt-2 text-sm text-gray-500">
           Use your university Microsoft account to continue
         </p>
+        {error && <div className="text-red-600 text-sm mt-2">{error}</div>}
         <button
           onClick={handleMicrosoftLogin}
           className="mt-8 flex w-full items-center justify-center gap-3 rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1a1a1a] cursor-pointer transition-colors"
+          disabled={loading}
         >
           <svg className="h-5 w-5" viewBox="0 0 21 21" fill="none">
             <rect x="1" y="1" width="9" height="9" fill="#F25022" />
@@ -35,7 +49,7 @@ export default function RegistrarLoginPage() {
             <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
             <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
           </svg>
-          Continue with Microsoft
+          {loading ? "Redirecting..." : "Continue with Microsoft"}
         </button>
       </div>
     </div>

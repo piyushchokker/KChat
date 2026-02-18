@@ -83,7 +83,7 @@ export default function RegistrarLayout({
           </div>
         }
       />
-      <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
+      <main className="flex flex-1 flex-col overflow-auto">{children}</main>
     </div>
   );
 }

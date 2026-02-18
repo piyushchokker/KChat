@@ -1,39 +1,49 @@
 "use client";
 
 import { create } from "zustand";
+
 import type { FileProcessingStatus, DocumentMetadata } from "@/types";
 import { uploadDocument } from "@/services/document-service";
 
-interface DocumentState {
+interface DocumentStoreState {
   processingFiles: FileProcessingStatus[];
   isUploading: boolean;
   error: string | null;
-
+  uploadQueue: Array<{ file: File; metadata: DocumentMetadata }>;
   upload: (file: File, metadata: DocumentMetadata) => Promise<void>;
+  processQueue: () => Promise<void>;
   clearProcessing: () => void;
 }
 
-export const useDocumentStore = create<DocumentState>((set) => ({
+const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   processingFiles: [],
   isUploading: false,
   error: null,
+  uploadQueue: [],
 
   upload: async (file, metadata) => {
+    set((state) => ({
+      uploadQueue: [...state.uploadQueue, { file, metadata }],
+    }));
+    await get().processQueue();
+  },
+
+  processQueue: async () => {
+    if (get().isUploading) return;
+    const next = get().uploadQueue[0];
+    if (!next) return;
+    set((state) => ({ isUploading: true }));
     const fileStatus: FileProcessingStatus = {
       id: `file-${Date.now()}`,
-      fileName: file.name,
+      fileName: next.file.name,
       status: "uploading",
       progress: 0,
     };
-
     set((state) => ({
       processingFiles: [...state.processingFiles, fileStatus],
-      isUploading: true,
       error: null,
     }));
-
     try {
-      // Simulate progress
       set((state) => ({
         processingFiles: state.processingFiles.map((f) =>
           f.id === fileStatus.id
@@ -41,9 +51,7 @@ export const useDocumentStore = create<DocumentState>((set) => ({
             : f
         ),
       }));
-
-      await uploadDocument(file, metadata);
-
+      await uploadDocument(next.file, next.metadata);
       set((state) => ({
         processingFiles: state.processingFiles.map((f) =>
           f.id === fileStatus.id
@@ -51,7 +59,10 @@ export const useDocumentStore = create<DocumentState>((set) => ({
             : f
         ),
         isUploading: false,
+        uploadQueue: state.uploadQueue.slice(1),
       }));
+      // Process next in queue
+      await get().processQueue();
     } catch (err) {
       set((state) => ({
         processingFiles: state.processingFiles.map((f) =>
@@ -66,9 +77,14 @@ export const useDocumentStore = create<DocumentState>((set) => ({
         ),
         isUploading: false,
         error: err instanceof Error ? err.message : "Upload failed",
+        uploadQueue: state.uploadQueue.slice(1),
       }));
+      // Process next in queue
+      await get().processQueue();
     }
   },
 
   clearProcessing: () => set({ processingFiles: [], error: null }),
 }));
+
+export default useDocumentStore;

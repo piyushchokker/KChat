@@ -2,6 +2,7 @@
 
 import RegistrarLayout from "@/components/layout/registrar-layout";
 import DocumentUploadForm from "@/components/forms/document-upload-form";
+import DocumentList from "@/components/forms/document-list";
 import useDocumentStore from "@/store/document-store";
 
 interface RegistrarDashboardClientProps {
@@ -32,6 +33,10 @@ export default function RegistrarDashboardClient({
               </p>
             </div>
             <DocumentUploadForm />
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold mb-2">Uploaded Documents</h3>
+              <DocumentList />
+            </div>
           </div>
 
           {/* Right panel – Processing Status */}

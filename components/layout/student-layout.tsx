@@ -70,7 +70,12 @@ export default function StudentLayout({
                 )}
               </button>
               {showMenu && (
-                <div className="absolute right-0 mt-2 w-32 rounded-lg bg-white shadow-lg ring-1 ring-black/10 z-50">
+                <div className="absolute right-0 mt-2 w-48 rounded-lg bg-white shadow-lg ring-1 ring-black/10 z-50 p-2 flex flex-col gap-1">
+                  {user?.email && (
+                    <div className="px-2 py-1 text-xs text-gray-500 truncate border-b border-gray-100 mb-1">
+                      {user.email}
+                    </div>
+                  )}
                   <button
                     onClick={handleSignOut}
                     className="w-full rounded-lg px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"

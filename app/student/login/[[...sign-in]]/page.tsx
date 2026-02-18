@@ -1,17 +1,27 @@
 "use client";
 
+
 import { createBrowserClient } from "@/lib/supabase";
+import { useState } from "react";
+import Button from "@/components/common/button";
+
 
 export default function StudentLoginPage() {
+  const [loading, setLoading] = useState(false);
   const handleMicrosoftLogin = async () => {
-    const supabase = createBrowserClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "azure",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/student/dashboard`,
-        scopes: "openid email profile",
-      },
-    });
+    setLoading(true);
+    try {
+      const supabase = createBrowserClient();
+      await supabase.auth.signInWithOAuth({
+        provider: "azure",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=/student/dashboard`,
+          scopes: "openid email profile",
+        },
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -25,8 +35,9 @@ export default function StudentLoginPage() {
         <p className="mt-2 text-sm text-gray-500">
           Use your university Microsoft account to continue
         </p>
-        <button
+        <Button
           onClick={handleMicrosoftLogin}
+          isLoading={loading}
           className="mt-8 flex w-full items-center justify-center gap-3 rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1a1a1a] cursor-pointer transition-colors"
         >
           <svg className="h-5 w-5" viewBox="0 0 21 21" fill="none">
@@ -36,7 +47,7 @@ export default function StudentLoginPage() {
             <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
           </svg>
           Continue with Microsoft
-        </button>
+        </Button>
       </div>
     </div>
   );

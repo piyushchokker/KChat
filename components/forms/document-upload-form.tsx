@@ -30,7 +30,11 @@ export default function DocumentUploadForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
-    await upload(file, metadata);
+    let uploadMetadata = { ...metadata };
+    if (!uploadMetadata.title || uploadMetadata.title.trim() === "") {
+      uploadMetadata.title = file.name;
+    }
+    await upload(file, uploadMetadata);
     // Reset form
     setFile(null);
     setMetadata(DEFAULT_METADATA);

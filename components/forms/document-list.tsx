@@ -48,8 +48,10 @@ export default function DocumentList() {
       ) : (
         documents.map((doc) => {
           const meta = doc.metadata || {};
-          const title = meta.title || "Untitled";
+          // Prefer top-level doc.title (from DB), fallback to metadata.title, else show placeholder
+          const title = doc.title || meta.title || "(No title)";
           const documentType = meta.documentType || "Unknown";
+          const fileName = doc.file_name || "";
           let uploadedAt: Date;
           try {
             uploadedAt = doc.uploadedAt ? new Date(doc.uploadedAt) : new Date();
@@ -61,6 +63,9 @@ export default function DocumentList() {
               <div>
                 <div className="font-medium text-gray-900">{title}</div>
                 <div className="text-xs text-gray-500">{documentType} | Uploaded: {uploadedAt.toLocaleString()}</div>
+                {fileName && (
+                  <div className="text-xs text-gray-500">File: {fileName}</div>
+                )}
               </div>
               <Button
                 type="button"

@@ -9,11 +9,19 @@ import type { DocumentMetadata } from "@/types";
 const DEFAULT_METADATA: DocumentMetadata = {
   title: "",
   documentType: "policy",
-  libraryType: "general",
-  keywords: [],
+  fileName: undefined,
+  fileSize: undefined,
   issuingAuthority: "",
   effectiveFrom: "",
   effectiveTill: "",
+  school: null,
+  course: null,
+  regulation: null,
+  semester: null,
+  keywords: [],
+  studentIntentMapping: null,
+  changeSummary: null,
+  academicYear: null,
 };
 
 export default function DocumentUploadForm() {
@@ -30,10 +38,12 @@ export default function DocumentUploadForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
-    let uploadMetadata = { ...metadata };
-    if (!uploadMetadata.title || uploadMetadata.title.trim() === "") {
-      uploadMetadata.title = file.name;
-    }
+    let uploadMetadata: DocumentMetadata = {
+      ...metadata,
+      title: metadata.title && metadata.title.trim() !== "" ? metadata.title : file.name,
+      fileName: file.name,
+      fileSize: file.size,
+    };
     await upload(file, uploadMetadata);
     // Reset form
     setFile(null);

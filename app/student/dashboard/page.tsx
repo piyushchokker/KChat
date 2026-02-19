@@ -34,7 +34,7 @@ export default async function StudentDashboard() {
         role: "student",
         roll_number: rollNumber,
       },
-      { onConflict: "roll_number" }
+      { onConflict: "auth_id" }
     ).select("image_url, is_allowed").single();
 
     if (syncError) {

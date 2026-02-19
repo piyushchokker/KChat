@@ -84,28 +84,19 @@ export type ApplicableTo =
 export interface DocumentMetadata {
   title: string;
   documentType: DocumentType;
-  libraryType: LibraryType;
-
-  // General Registrar Library fields
-  applicableTo?: ApplicableTo[];
-  academicLevel?: AcademicLevel[];
-
-  // Course-Specific Library fields
-  school?: string;
-  course?: string;
-  regulation?: string;
-  semester?: string;
-
-  // Common controls
+  fileName?: string;
+  fileSize?: number;
+  issuingAuthority: string;
   effectiveFrom: string;
   effectiveTill: string;
-  // Removed allowAiUsage
+  school?: string | null;
+  course?: string | null;
+  regulation?: string | null;
+  semester?: string | null;
   keywords: string[];
-  studentIntentMapping?: string;
-  issuingAuthority: string;
-  changeSummary?: string;
-  academicYear?: string;
-  // Removed directions and professorDetails (now only in dropdown)
+  studentIntentMapping?: string | null;
+  changeSummary?: string | null;
+  academicYear?: string | null;
 }
 
 export interface UploadedDocument {

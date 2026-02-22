@@ -93,10 +93,10 @@ export type Database = {
       documents: {
         Row: {
           academic_level: string[] | null
-          academic_year: string | null
+          // removed academic_year
           // removed allow_ai_usage
           applicable_to: string[] | null
-          change_summary: string | null
+          // removed change_summary
           chunk_count: number | null
           course: string | null
           created_at: string
@@ -111,12 +111,11 @@ export type Database = {
           keywords: string[] | null
           // removed library_type
           processing_message: string | null
-          processing_status: string
-          regulation: string | null
+          // removed regulation
           school: string | null
           semester: string | null
           storage_path: string
-          student_intent_mapping: string | null
+          // removed student_intent_mapping
           title: string
           updated_at: string
           uploaded_by: string | null
@@ -125,10 +124,10 @@ export type Database = {
         }
         Insert: {
           academic_level?: string[] | null
-          academic_year?: string | null
+          // removed academic_year
           // removed allow_ai_usage
           applicable_to?: string[] | null
-          change_summary?: string | null
+          // removed change_summary
           chunk_count?: number | null
           course?: string | null
           created_at?: string
@@ -143,12 +142,11 @@ export type Database = {
           keywords?: string[] | null
           // removed library_type
           processing_message?: string | null
-          processing_status?: string
-          regulation?: string | null
+          // removed regulation
           school?: string | null
           semester?: string | null
           storage_path: string
-          student_intent_mapping?: string | null
+          // removed student_intent_mapping
           title: string
           updated_at?: string
           uploaded_by?: string | null
@@ -157,10 +155,10 @@ export type Database = {
         }
         Update: {
           academic_level?: string[] | null
-          academic_year?: string | null
+          // removed academic_year
           // removed allow_ai_usage
           applicable_to?: string[] | null
-          change_summary?: string | null
+          // removed change_summary
           chunk_count?: number | null
           course?: string | null
           created_at?: string
@@ -175,12 +173,11 @@ export type Database = {
           keywords?: string[] | null
           // removed library_type
           processing_message?: string | null
-          processing_status?: string
-          regulation?: string | null
+          // removed regulation
           school?: string | null
           semester?: string | null
           storage_path?: string
-          student_intent_mapping?: string | null
+          // removed student_intent_mapping
           title?: string
           updated_at?: string
           uploaded_by?: string | null

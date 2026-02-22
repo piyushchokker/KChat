@@ -16,12 +16,8 @@ const DEFAULT_METADATA: DocumentMetadata = {
   effectiveTill: "",
   school: null,
   course: null,
-  regulation: null,
   semester: null,
   keywords: [],
-  studentIntentMapping: null,
-  changeSummary: null,
-  academicYear: null,
 };
 
 export default function DocumentUploadForm() {

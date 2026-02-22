@@ -112,7 +112,6 @@ export async function POST(req: Request) {
         keywords: metadata.keywords || [],
         issuing_authority: metadata.issuingAuthority,
         uploaded_by: user.id,
-        processing_status: "pending",
       })
       .select()
       .single();
@@ -148,18 +147,13 @@ export async function POST(req: Request) {
         documentType: doc.document_type,
         school: doc.school,
         course: doc.course,
-        regulation: doc.regulation,
         semester: doc.semester,
         effectiveFrom: doc.effective_from,
         effectiveTill: doc.effective_till,
         keywords: doc.keywords,
-        studentIntentMapping: doc.student_intent_mapping,
         issuingAuthority: doc.issuing_authority,
-        changeSummary: doc.change_summary,
-        academicYear: doc.academic_year,
       },
       uploadedAt: doc.created_at,
-      status: doc.processing_status,
     });
   } catch (error) {
     console.error("Upload error:", error);
@@ -203,11 +197,7 @@ export async function GET(req: Request) {
   const visibility = searchParams.get("visibility");
   if (visibility) query = query.eq("visibility", visibility);
 
-  const status = searchParams.get("status");
-  if (status) query = query.eq("processing_status", status);
-
-  const year = searchParams.get("year");
-  if (year) query = query.eq("academic_year", year);
+  // removed status and year filters
 
   // Pagination
   const page = parseInt(searchParams.get("page") || "1");

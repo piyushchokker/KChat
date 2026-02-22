@@ -60,8 +60,7 @@ export async function PATCH(req: Request, context: RouteContext) {
   const body = await req.json();
   const allowedFields = [
     "title", "visibility", "allow_ai_usage", "keywords",
-    "student_intent_mapping", "effective_from", "effective_till",
-    "change_summary", "version",
+    "effective_from", "effective_till", "version",
   ];
 
   const updates: Record<string, string | boolean | string[]> = {};

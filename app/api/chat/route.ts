@@ -99,12 +99,9 @@ export async function POST(req: Request) {
   }
 
   // ================================================
-  // AI RESPONSE — Replace with your RAG pipeline
+  // AI RESPONSE — Python RAG backend
   // ================================================
-  // For now, using keyword-based mock responses.
-  // In production, this would call your Python RAG backend
-  // or an LLM API with document context.
-  const aiResponse = generateMockResponse(query);
+  const aiResponse = await callPythonBackend(query);
 
   // Save assistant message
   const { data: assistantMsg, error: assistantMsgError } = await admin
@@ -151,46 +148,56 @@ export async function POST(req: Request) {
   });
 }
 
-// ----- Mock AI response generator (replace with real RAG) -----
+// ----- Python RAG backend caller -----
 
-const MOCK_RESPONSES: Record<string, string> = {
-  admission:
-    "For admission to K.R. Mangalam University, you need to:\n\n1. Visit our official website and fill out the application form\n2. Submit required documents (10th & 12th marksheets, ID proof)\n3. Appear for the entrance test/interview\n4. Pay the registration fee\n\nDeadline for applications is March 31, 2026.",
-  scholarship:
-    "K.R. Mangalam University offers several scholarships:\n\n• **Merit Scholarship**: Up to 100% tuition waiver for top performers\n• **Sports Scholarship**: For national/state level athletes\n• **Need-Based Aid**: Financial assistance based on family income\n\nApply through the Student Portal → Scholarships section.",
-  exam:
-    "The exam schedule for the current semester:\n\n• **Mid-Term Exams**: March 15-25, 2026\n• **End-Term Exams**: May 10-30, 2026\n• **Supplementary Exams**: July 5-15, 2026\n\nDetailed date sheets are available on the university notice board and student portal.",
-  registrar:
-    "You can contact the Registrar Office through:\n\n• **Email**: registrar@krmangalam.edu.in\n• **Phone**: +91-129-4192000\n• **Office Hours**: Mon-Fri, 9:00 AM - 5:00 PM\n• **Location**: Admin Block, Ground Floor, KRM University Campus",
-  transcript:
-    "To apply for a transcript:\n\n1. Log in to the Student Portal\n2. Navigate to 'Certificates' → 'Apply for Transcript'\n3. Select transcript type (Official/Unofficial)\n4. Pay the fee (₹500 per copy)\n5. Processing time: 7-10 working days\n\nYou'll receive an email notification when ready for collection.",
-  fee: "Fee payment details:\n\n• **Online Payment**: Through the Student Portal → Fee Payment\n• **Bank Transfer**: HDFC Bank, A/C: KRMU Fee Account\n• **Due Date**: 15th of every month\n• **Late Fee**: ₹100 per day after due date\n\nFor fee-related queries, contact accounts@krmangalam.edu.in",
-  hostel:
-    "Hostel information:\n\n• **Boys Hostel**: Block A & B, capacity 500 students\n• **Girls Hostel**: Block C & D, capacity 400 students\n• **Fee**: ₹75,000 - ₹1,25,000 per year (depending on room type)\n• **Facilities**: Wi-Fi, mess, laundry, gym, common room\n\nApply through Admissions → Hostel Allotment.",
-};
-
-function generateMockResponse(query: string) {
-  const lower = query.toLowerCase();
-  for (const [key, response] of Object.entries(MOCK_RESPONSES)) {
-    if (lower.includes(key)) {
-      return {
-        answer: response,
-        confidence: 0.92,
-        sources: [
-          {
-            title: "University Academic Handbook 2025-26",
-            type: "guideline",
-            relevance: 0.92,
-          },
-        ],
-      };
-    }
+async function callPythonBackend(query: string) {
+  const backendUrl = process.env.PYTHON_BACKEND_URL;
+  if (!backendUrl) {
+    console.error("[Python Backend Error] PYTHON_BACKEND_URL is not set");
+    return {
+      answer: "I'm sorry, the knowledge base is not configured. Please contact support.",
+      confidence: 0,
+      sources: [],
+    };
   }
 
-  return {
-    answer:
-      "Thank you for your question. I'm searching through the university documents to find the most accurate answer for you. Please note that I can only provide information from officially approved registrar documents.\n\nIf your query requires specific policy interpretation, I'd recommend visiting the Registrar Office during working hours (Mon-Fri, 9 AM - 5 PM) or emailing registrar@krmangalam.edu.in.",
-    confidence: 0.5,
-    sources: [],
-  };
+  try {
+    const res = await fetch(
+      backendUrl,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: JSON.stringify({ query }),
+      }
+    );
+
+    if (!res.ok) {
+      throw new Error(`Backend responded with ${res.status}`);
+    }
+
+    const data = await res.json();
+
+    // Support common response field names from Python backends
+    const rawAnswer =
+      data.answer ?? data.response ?? data.message ?? data.text ?? data;
+    const answer =
+      typeof rawAnswer === "string" ? rawAnswer : JSON.stringify(rawAnswer);
+
+    return {
+      answer,
+      confidence: typeof data.confidence === "number" ? data.confidence : 0.9,
+      sources: Array.isArray(data.sources) ? data.sources : [],
+    };
+  } catch (err) {
+    console.error("[Python Backend Error]", err instanceof Error ? err.message : String(err));
+    return {
+      answer:
+        "I'm sorry, I couldn't reach the knowledge base right now. Please try again in a moment.",
+      confidence: 0,
+      sources: [],
+    };
+  }
 }

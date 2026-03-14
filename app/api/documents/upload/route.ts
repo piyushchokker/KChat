@@ -129,6 +129,7 @@ async function runMalwareScan(fileBuffer: Buffer, fileName: string) {
   if (!scanUrl) {
     return { clean: true as const };
   }
+  const scanBytes = Uint8Array.from(fileBuffer);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
@@ -140,7 +141,7 @@ async function runMalwareScan(fileBuffer: Buffer, fileName: string) {
         "Content-Type": "application/octet-stream",
         "X-File-Name": encodeURIComponent(fileName),
       },
-      body: fileBuffer,
+      body: scanBytes.buffer,
       signal: controller.signal,
     });
 

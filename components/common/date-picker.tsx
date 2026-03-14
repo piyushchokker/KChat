@@ -11,6 +11,24 @@ interface DatePickerProps {
   locale?: string;
 }
 
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseLocalDate(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const day = Number.parseInt(match[3], 10);
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
 export default function DatePicker({
   value,
   onChange,
@@ -21,7 +39,7 @@ export default function DatePicker({
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [displayDate, setDisplayDate] = useState<Date>(
-    value ? new Date(value) : new Date()
+    value ? parseLocalDate(value) ?? new Date() : new Date()
   );
   const [selectedDate, setSelectedDate] = useState<string>(value || "");
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -36,6 +54,19 @@ export default function DatePicker({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    const normalized = value || "";
+    setSelectedDate(normalized);
+    if (normalized) {
+      const nextDate = parseLocalDate(normalized);
+      if (nextDate) {
+        setDisplayDate(nextDate);
+      }
+      return;
+    }
+    setDisplayDate(new Date());
+  }, [value]);
 
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -64,7 +95,7 @@ export default function DatePicker({
 
   const handleDateClick = (day: number) => {
     const selected = new Date(displayDate.getFullYear(), displayDate.getMonth(), day);
-    const formatted = selected.toISOString().split("T")[0]; // YYYY-MM-DD format
+    const formatted = formatLocalDate(selected);
     setSelectedDate(formatted);
     onChange(formatted);
     setIsOpen(false);
@@ -80,7 +111,7 @@ export default function DatePicker({
 
   const handleToday = () => {
     const today = new Date();
-    const formatted = today.toISOString().split("T")[0];
+    const formatted = formatLocalDate(today);
     setSelectedDate(formatted);
     onChange(formatted);
     setDisplayDate(today);
@@ -109,7 +140,7 @@ export default function DatePicker({
   }
 
   const formattedValue = selectedDate
-    ? new Date(selectedDate).toLocaleDateString(locale, {
+    ? (parseLocalDate(selectedDate) ?? new Date()).toLocaleDateString(locale, {
         year: "numeric",
         month: "long",
         day: "numeric",

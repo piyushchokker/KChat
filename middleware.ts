@@ -1,6 +1,19 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+function parseCsvEnv(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function getEmailDomain(email: string): string {
+  const at = email.lastIndexOf("@");
+  if (at === -1) return "";
+  return email.slice(at + 1).toLowerCase();
+}
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -29,6 +42,43 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  if (user?.email) {
+    const trustedDomains = parseCsvEnv(process.env.TRUSTED_EMAIL_DOMAINS);
+
+    if (trustedDomains.length === 0) {
+      if (request.nextUrl.pathname.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: "Server misconfiguration: TRUSTED_EMAIL_DOMAINS is missing" },
+          { status: 500 }
+        );
+      }
+
+      const url = request.nextUrl.clone();
+      url.pathname = "/sign-in";
+      url.searchParams.set("error", "server_config_missing");
+      return NextResponse.redirect(url);
+    }
+
+    const emailDomain = getEmailDomain(user.email.toLowerCase());
+
+    if (!trustedDomains.includes(emailDomain)) {
+      // Clear the session cookie so stale sessions cannot bypass allowlist checks.
+      await supabase.auth.signOut();
+
+      if (request.nextUrl.pathname.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: "Email domain is not allowed" },
+          { status: 403 }
+        );
+      }
+
+      const url = request.nextUrl.clone();
+      url.pathname = "/sign-in";
+      url.searchParams.set("error", "domain_not_allowed");
+      return NextResponse.redirect(url);
+    }
+  }
 
   const { pathname } = request.nextUrl;
 

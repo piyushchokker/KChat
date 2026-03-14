@@ -1,5 +1,175 @@
 import { NextResponse } from "next/server";
 import { createServerClient, createAdminClient } from "@/lib/supabase-server";
+import { z } from "zod";
+
+function parseCsvEnv(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+const ALLOWED_EXTENSIONS = new Set([
+  ".pdf",
+  ".docx",
+  ".txt",
+  ".md",
+  ".pptx",
+  ".xlsx",
+  ".csv",
+  ".json",
+  ".jsonl",
+  ".html",
+  ".xml",
+  ".doc",
+]);
+
+const MIME_BY_EXTENSION: Record<string, string[]> = {
+  ".pdf": ["application/pdf"],
+  ".docx": [
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ],
+  ".pptx": [
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ],
+  ".xlsx": [
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ],
+  ".doc": ["application/msword"],
+  ".txt": ["text/plain"],
+  ".md": ["text/markdown", "text/plain"],
+  ".csv": ["text/csv", "application/csv", "text/plain"],
+  ".json": ["application/json", "text/plain"],
+  ".jsonl": ["application/x-ndjson", "application/json", "text/plain"],
+  ".html": ["text/html"],
+  ".xml": ["application/xml", "text/xml", "text/plain"],
+};
+
+const DOCUMENT_TYPE_VALUES = [
+  "policy",
+  "procedure",
+  "notice",
+  "circular",
+  "guideline",
+  "form",
+  "directions",
+  "professor_details",
+  "other",
+] as const;
+
+const metadataSchema = z
+  .object({
+    title: z.string().trim().min(3).max(200),
+    documentType: z.enum(DOCUMENT_TYPE_VALUES),
+    issuingAuthority: z.string().trim().min(2).max(120),
+    effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    effectiveTill: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    school: z.string().trim().max(120).optional().nullable(),
+    course: z.string().trim().max(160).optional().nullable(),
+    semester: z.string().trim().max(50).optional().nullable(),
+    keywords: z.array(z.string().trim().min(1).max(50)).max(30).default([]),
+  })
+  .refine((m) => m.effectiveTill >= m.effectiveFrom, {
+    message: "effectiveTill must be greater than or equal to effectiveFrom",
+    path: ["effectiveTill"],
+  });
+
+function getExtension(fileName: string): string {
+  const normalized = fileName.trim().toLowerCase();
+  const dot = normalized.lastIndexOf(".");
+  return dot === -1 ? "" : normalized.slice(dot);
+}
+
+function startsWithBytes(buffer: Buffer, bytes: number[]): boolean {
+  if (buffer.length < bytes.length) return false;
+  return bytes.every((byte, index) => buffer[index] === byte);
+}
+
+function isPdf(buffer: Buffer): boolean {
+  return startsWithBytes(buffer, [0x25, 0x50, 0x44, 0x46, 0x2d]);
+}
+
+function isZip(buffer: Buffer): boolean {
+  return (
+    startsWithBytes(buffer, [0x50, 0x4b, 0x03, 0x04]) ||
+    startsWithBytes(buffer, [0x50, 0x4b, 0x05, 0x06]) ||
+    startsWithBytes(buffer, [0x50, 0x4b, 0x07, 0x08])
+  );
+}
+
+function isLegacyDoc(buffer: Buffer): boolean {
+  return startsWithBytes(buffer, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+}
+
+function isLikelyText(buffer: Buffer): boolean {
+  const sample = buffer.subarray(0, Math.min(buffer.length, 4096));
+  return !sample.includes(0x00);
+}
+
+function validateMagicBytes(extension: string, fileBuffer: Buffer): boolean {
+  if (extension === ".pdf") return isPdf(fileBuffer);
+  if (extension === ".docx" || extension === ".pptx" || extension === ".xlsx") {
+    return isZip(fileBuffer);
+  }
+  if (extension === ".doc") return isLegacyDoc(fileBuffer);
+  return isLikelyText(fileBuffer);
+}
+
+function validateMimeType(extension: string, providedMime: string): boolean {
+  if (!providedMime || providedMime === "application/octet-stream") {
+    return true;
+  }
+  const allowed = MIME_BY_EXTENSION[extension] ?? [];
+  return allowed.includes(providedMime.toLowerCase());
+}
+
+async function runMalwareScan(fileBuffer: Buffer, fileName: string) {
+  const scanUrl = process.env.MALWARE_SCAN_URL;
+  if (!scanUrl) {
+    return { clean: true as const };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+
+  try {
+    const response = await fetch(scanUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "X-File-Name": encodeURIComponent(fileName),
+      },
+      body: fileBuffer,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      return { clean: false as const, reason: `Scan service returned ${response.status}` };
+    }
+
+    const payload = (await response.json().catch(() => null)) as
+      | { clean?: boolean; reason?: string }
+      | null;
+
+    if (!payload || typeof payload.clean !== "boolean") {
+      return { clean: false as const, reason: "Invalid scan response" };
+    }
+
+    if (!payload.clean) {
+      return {
+        clean: false as const,
+        reason: payload.reason ?? "File rejected by malware scanner",
+      };
+    }
+
+    return { clean: true as const };
+  } catch {
+    return { clean: false as const, reason: "Malware scan failed" };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 /**
  * POST /api/documents/upload
@@ -14,13 +184,47 @@ export async function POST(req: Request) {
   }
 
   const admin = createAdminClient();
+  const authEmail = (authUser.email ?? "").trim().toLowerCase();
+  const registrarAllowlist = new Set(
+    parseCsvEnv(process.env.REGISTRAR_EMAIL_ALLOWLIST)
+  );
 
   // Get internal user ID
-  const { data: user } = await admin
+  let { data: user } = await admin
     .from("users")
     .select("id, role")
     .eq("auth_id", authUser.id)
-    .single();
+    .maybeSingle();
+
+  const isAllowlistedRegistrar = authEmail && registrarAllowlist.has(authEmail);
+
+  // If DB role is stale but auth email is explicitly allowlisted, reconcile role.
+  if ((!user || user.role !== "registrar") && isAllowlistedRegistrar) {
+    const { data: reconciledUser } = await admin
+      .from("users")
+      .upsert(
+        {
+          auth_id: authUser.id,
+          email: authEmail,
+          name:
+            ((authUser.user_metadata?.given_name ||
+              authUser.user_metadata?.name ||
+              authUser.user_metadata?.full_name ||
+              authEmail) as string) ?? authEmail,
+          role: "registrar",
+          is_allowed: true,
+          roll_number: null,
+          image_url: authUser.user_metadata?.avatar_url ?? null,
+        },
+        { onConflict: "auth_id" }
+      )
+      .select("id, role")
+      .single();
+
+    if (reconciledUser) {
+      user = reconciledUser;
+    }
+  }
 
   if (!user || user.role !== "registrar") {
     return NextResponse.json(
@@ -41,16 +245,33 @@ export async function POST(req: Request) {
       );
     }
 
-    const metadata = JSON.parse(metadataStr);
+    let metadataRaw: unknown;
+    try {
+      metadataRaw = JSON.parse(metadataStr);
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid metadata JSON" },
+        { status: 400 }
+      );
+    }
 
+    const parsedMetadata = metadataSchema.safeParse(metadataRaw);
+    if (!parsedMetadata.success) {
+      return NextResponse.json(
+        {
+          error: "Invalid metadata",
+          details: parsedMetadata.error.issues.map((issue) => ({
+            path: issue.path.join("."),
+            message: issue.message,
+          })),
+        },
+        { status: 400 }
+      );
+    }
 
-    // Validate file type by extension
-    const allowedExtensions = [
-      ".pdf", ".docx", ".txt", ".md", ".pptx", ".xlsx", ".csv", ".json", ".jsonl", ".html", ".xml", ".doc"
-    ];
-    const fileName = file.name.toLowerCase();
-    const isAllowed = allowedExtensions.some(ext => fileName.endsWith(ext));
-    if (!isAllowed) {
+    const metadata = parsedMetadata.data;
+    const extension = getExtension(file.name);
+    if (!ALLOWED_EXTENSIONS.has(extension)) {
       return NextResponse.json(
         { error: "File type not allowed" },
         { status: 400 }
@@ -58,9 +279,33 @@ export async function POST(req: Request) {
     }
 
     // Validate file size (50MB max)
-    if (file.size > 52428800) {
+    if (file.size > MAX_UPLOAD_BYTES) {
       return NextResponse.json(
         { error: "File size exceeds 50MB limit" },
+        { status: 400 }
+      );
+    }
+
+    if (!validateMimeType(extension, file.type || "")) {
+      return NextResponse.json(
+        { error: "MIME type does not match file extension" },
+        { status: 400 }
+      );
+    }
+
+    // Read file once and run binary checks before upload.
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    if (!validateMagicBytes(extension, fileBuffer)) {
+      return NextResponse.json(
+        { error: "File signature validation failed" },
+        { status: 400 }
+      );
+    }
+
+    const scanResult = await runMalwareScan(fileBuffer, file.name);
+    if (!scanResult.clean) {
+      return NextResponse.json(
+        { error: scanResult.reason ?? "File rejected by malware scan" },
         { status: 400 }
       );
     }
@@ -73,7 +318,6 @@ export async function POST(req: Request) {
 
 
     // Upload to Supabase Storage
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
     const { error: uploadError } = await admin.storage
       .from("documents")
       .upload(storagePath, fileBuffer, {
@@ -179,9 +423,26 @@ export async function GET(req: Request) {
   const admin = createAdminClient();
   const { searchParams } = new URL(req.url);
 
+  const { data: currentUser } = await admin
+    .from("users")
+    .select("id, role")
+    .eq("auth_id", authUser.id)
+    .single();
+
+  if (!currentUser) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const isRegistrar = currentUser.role === "registrar";
+  const studentSelect =
+    "id, title, file_name, file_url, file_size, document_type, school, course, semester, effective_from, effective_till, keywords, issuing_authority, created_at, updated_at";
+  const registrarSelect =
+    `${studentSelect}, storage_path, uploaded_by, uploaded_by_user:users!documents_uploaded_by_fkey(name, email)`;
+  const selectColumns = isRegistrar ? registrarSelect : studentSelect;
+
   let query = admin
     .from("documents")
-    .select("*, uploaded_by_user:users!documents_uploaded_by_fkey(name, email)")
+    .select(selectColumns, { count: "exact" })
     .order("created_at", { ascending: false });
 
   // Filters

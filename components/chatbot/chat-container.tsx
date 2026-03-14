@@ -43,6 +43,11 @@ export default function ChatContainer() {
   };
 
   const isEmpty = messages.length === 0;
+  const latestAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+  const showThinking = isLoading && (!latestAssistant || latestAssistant.content.trim().length === 0);
+  const visibleMessages = messages.filter(
+    (m) => !(m.role === "assistant" && m.content.trim().length === 0)
+  );
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
@@ -78,18 +83,18 @@ export default function ChatContainer() {
           </div>
         ) : (
           <div className="mx-auto flex max-w-4xl flex-col gap-4">
-            {messages.map((msg) => (
+            {visibleMessages.map((msg) => (
               <ChatMessageBubble key={msg.id} message={msg} />
             ))}
 
-            {isLoading && (
+            {showThinking && (
               <div className="flex items-center gap-2 text-sm text-gray-400">
                 <div className="flex gap-1">
                   <span className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:0ms]" />
                   <span className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:150ms]" />
                   <span className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:300ms]" />
                 </div>
-                Thinking...
+                Searching...
               </div>
             )}
             <div ref={bottomRef} />

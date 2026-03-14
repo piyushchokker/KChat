@@ -18,9 +18,26 @@ export async function GET(_req: Request, context: RouteContext) {
   const { id } = await context.params;
   const admin = createAdminClient();
 
+  const { data: currentUser } = await admin
+    .from("users")
+    .select("id, role")
+    .eq("auth_id", authUser.id)
+    .single();
+
+  if (!currentUser) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const isRegistrar = currentUser.role === "registrar";
+  const studentSelect =
+    "id, title, file_name, file_url, file_size, document_type, school, course, semester, effective_from, effective_till, keywords, issuing_authority, created_at, updated_at";
+  const registrarSelect =
+    `${studentSelect}, storage_path, uploaded_by, uploaded_by_user:users!documents_uploaded_by_fkey(name, email)`;
+  const selectColumns = isRegistrar ? registrarSelect : studentSelect;
+
   const { data, error } = await admin
     .from("documents")
-    .select("*, uploaded_by_user:users!documents_uploaded_by_fkey(name, email)")
+    .select(selectColumns)
     .eq("id", id)
     .single();
 

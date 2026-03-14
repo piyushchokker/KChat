@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SelectDropdown from "@/components/common/select-dropdown";
 import InputField from "@/components/common/input-field";
 import DatePicker from "@/components/common/date-picker";
@@ -16,7 +16,11 @@ export default function MetadataFields({
   metadata,
   onChange,
 }: MetadataFieldsProps) {
-  const [selectedSchool, setSelectedSchool] = useState("");
+  const [selectedSchool, setSelectedSchool] = useState(metadata.school ?? "");
+
+  useEffect(() => {
+    setSelectedSchool(metadata.school ?? "");
+  }, [metadata.school]);
 
   const school = SCHOOLS.find((s) => s.id === selectedSchool);
   const courses = school?.courses ?? [];

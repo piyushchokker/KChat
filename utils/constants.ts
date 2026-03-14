@@ -3,8 +3,50 @@ import type { School, DocumentType } from "@/types";
 export const APP_NAME = "KChat";
 export const UNIVERSITY_NAME = "K.R. Mangalam University";
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
+function normalizeBaseUrl(url: string): string {
+  return url.replace(/\/+$/, "");
+}
+
+function validateApiBaseUrl(url: string, isLocalEnv: boolean): string {
+  let parsed: URL;
+
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("NEXT_PUBLIC_API_URL must be a valid absolute URL");
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  const isLocalHost =
+    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  const isHttps = parsed.protocol === "https:";
+
+  if (!isHttps && !isLocalHost) {
+    throw new Error("NEXT_PUBLIC_API_URL must use HTTPS unless targeting localhost");
+  }
+
+  if (!isLocalEnv && !isHttps) {
+    throw new Error("NEXT_PUBLIC_API_URL must use HTTPS in non-local environments");
+  }
+
+  return normalizeBaseUrl(parsed.toString());
+}
+
+const rawApiBaseUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+const isLocalEnv =
+  process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+
+export const API_BASE_URL = (() => {
+  if (!rawApiBaseUrl) {
+    if (!isLocalEnv) {
+      throw new Error("NEXT_PUBLIC_API_URL is required in non-local environments");
+    }
+
+    return "http://localhost:8000/api";
+  }
+
+  return validateApiBaseUrl(rawApiBaseUrl, isLocalEnv);
+})();
 
 // ---------- Schools & Courses ----------
 export const SCHOOLS: School[] = [

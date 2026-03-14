@@ -16,6 +16,55 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Environment Variables
+
+Create `.env.local` from `.env.example` and set:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_API_URL`
+- `SUPABASE_SECRET_KEY`
+- `PYTHON_BACKEND_URL`
+- `TRUSTED_EMAIL_DOMAINS`
+- `REGISTRAR_EMAIL_ALLOWLIST`
+- `CHAT_RATE_LIMIT_WINDOW_MS`
+- `CHAT_RATE_LIMIT_PER_USER`
+- `CHAT_RATE_LIMIT_PER_IP`
+- `CHAT_MAX_QUERY_CHARS`
+- `CHAT_MAX_QUERY_TOKENS`
+- `CHAT_BACKEND_TIMEOUT_MS`
+- `CHAT_BACKEND_RETRIES`
+    - `CHAT_BACKEND_RETRY_BASE_DELAY_MS`
+- `CHAT_BACKEND_CIRCUIT_FAILURE_THRESHOLD`
+- `CHAT_BACKEND_CIRCUIT_OPEN_MS`
+- `REDIS_URL`
+- `REDIS_DISABLED`
+
+Redis-backed resilience:
+
+- Chat rate limits and circuit breaker state use Redis when `REDIS_URL` is set.
+- If Redis is not configured or temporarily unavailable, the app falls back to in-memory limits.
+- In-memory fallback works for local development but is per-instance only.
+
+Role assignment hardening:
+
+- Registrar role is granted only by explicit allowlist or existing server-side user record.
+- Never derive privileged role from email substrings.
+
+Security rules:
+
+- Never commit `.env.local`.
+- Never share server secret keys in chat, screenshots, or logs.
+- If a key is exposed, rotate it immediately in Supabase Dashboard.
+
+### Key Rotation Checklist
+
+1. Rotate leaked keys in Supabase Dashboard.
+2. Update deployment secret manager values (Vercel, etc.).
+3. Update local `.env.local` values.
+4. Restart local dev server and redeploy.
+5. Invalidate old leaked values everywhere they were stored/shared.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

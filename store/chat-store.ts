@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import type { ChatMessage } from "@/types";
 import {
-  sendChatMessage,
+  sendChatMessageStream,
   getConversations,
   getConversationMessages,
   deleteConversation,
@@ -33,49 +33,87 @@ export const useChatStore = create<ChatState>((set, get) => ({
   error: null,
 
   sendMessage: async (query) => {
+    const now = Date.now();
     const userMessage: ChatMessage = {
-      id: `temp-${Date.now()}`,
+      id: `temp-user-${now}`,
       role: "user",
       content: query,
       timestamp: new Date(),
     };
 
+    const assistantMessageId = `temp-assistant-${now}`;
+    const assistantPlaceholder: ChatMessage = {
+      id: assistantMessageId,
+      role: "assistant",
+      content: "",
+      timestamp: new Date(),
+    };
+
     set((state) => ({
-      messages: [...state.messages, userMessage],
+      messages: [...state.messages, userMessage, assistantPlaceholder],
       isLoading: true,
       error: null,
     }));
 
     try {
-      const response = await sendChatMessage(
+      await sendChatMessageStream(
         query,
-        get().activeConversationId ?? undefined
+        get().activeConversationId ?? undefined,
+        {
+          onMeta: (meta) => {
+            set((state) => ({
+              activeConversationId: meta.conversationId,
+              messages: state.messages.map((m) => {
+                if (m.id === userMessage.id) {
+                  return {
+                    id: meta.userMessage.id,
+                    role: "user" as const,
+                    content: meta.userMessage.content,
+                    timestamp: new Date(meta.userMessage.timestamp),
+                  };
+                }
+                return m;
+              }),
+            }));
+          },
+          onDelta: (delta) => {
+            set((state) => ({
+              messages: state.messages.map((m) =>
+                m.id === assistantMessageId
+                  ? { ...m, content: m.content + delta }
+                  : m
+              ),
+            }));
+          },
+          onDone: (done) => {
+            set((state) => ({
+              messages: state.messages.map((m) =>
+                m.id === assistantMessageId
+                  ? {
+                      id: done.assistantMessage.id,
+                      role: "assistant" as const,
+                      content: done.assistantMessage.content,
+                      timestamp: new Date(done.assistantMessage.timestamp),
+                    }
+                  : m
+              ),
+              isLoading: false,
+            }));
+          },
+        }
       );
 
-      // Replace temp user message and add assistant message
-      set((state) => ({
-        activeConversationId: response.conversationId,
-        messages: [
-          ...state.messages.filter((m) => m.id !== userMessage.id),
-          {
-            id: response.userMessage.id,
-            role: "user" as const,
-            content: response.userMessage.content,
-            timestamp: new Date(response.userMessage.timestamp),
-          },
-          {
-            id: response.assistantMessage.id,
-            role: "assistant" as const,
-            content: response.assistantMessage.content,
-            timestamp: new Date(response.assistantMessage.timestamp),
-          },
-        ],
-        isLoading: false,
-      }));
+      set({ isLoading: false });
 
       // Refresh conversations list
       get().loadConversations();
     } catch (err) {
+      // Remove empty assistant placeholder if stream failed before content.
+      set((state) => ({
+        messages: state.messages.filter(
+          (m) => !(m.id === assistantMessageId && m.content.length === 0)
+        ),
+      }));
       set({
         error: err instanceof Error ? err.message : "Failed to get response",
         isLoading: false,

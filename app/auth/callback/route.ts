@@ -1,6 +1,37 @@
 import { createServerClient, createAdminClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 
+const DEFAULT_REDIRECT_PATH = "/student/dashboard";
+const ALLOWED_REDIRECT_PREFIXES = [
+  "/student/dashboard",
+  "/student/banned",
+  "/registrar/dashboard",
+  "/sign-in",
+  "/",
+];
+
+function sanitizeNextPath(rawNext: string | null): string {
+  if (!rawNext) return DEFAULT_REDIRECT_PATH;
+
+  const next = rawNext.trim();
+  if (!next) return DEFAULT_REDIRECT_PATH;
+
+  // Only allow app-relative paths and block protocol-relative / traversal edge cases.
+  if (!next.startsWith("/") || next.startsWith("//") || next.includes("\\")) {
+    return DEFAULT_REDIRECT_PATH;
+  }
+
+  if (next.includes("\r") || next.includes("\n")) {
+    return DEFAULT_REDIRECT_PATH;
+  }
+
+  const isAllowed = ALLOWED_REDIRECT_PREFIXES.some((prefix) =>
+    next === prefix || next.startsWith(`${prefix}/`) || next.startsWith(`${prefix}?`)
+  );
+
+  return isAllowed ? next : DEFAULT_REDIRECT_PATH;
+}
+
 /**
  * GET /auth/callback
  *
@@ -11,7 +42,7 @@ import { NextResponse } from "next/server";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/student/dashboard";
+  const next = sanitizeNextPath(searchParams.get("next"));
 
   if (code) {
     const supabase = await createServerClient();

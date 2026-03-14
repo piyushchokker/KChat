@@ -5,7 +5,9 @@ import type { AppUser } from "@/types";
  * Called after login to ensure user exists in our database.
  */
 export async function syncUser(): Promise<AppUser> {
-  const res = await fetch("/api/auth/sync");
+  const res = await fetch("/api/auth/sync", {
+    method: "POST",
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "Sync failed" }));
     throw new Error(err.error ?? "Failed to sync user");

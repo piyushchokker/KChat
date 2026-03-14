@@ -7,16 +7,18 @@ import type { Database } from "@/types/database";
 
 /**
  * Supabase Admin Client — server-side only.
- * Uses the service_role key to bypass RLS for API route operations.
+ * Uses a server-only secret key to bypass RLS for API route operations.
  * NEVER expose this on the client side.
  */
 export function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const key =
+    process.env.SUPABASE_SECRET_KEY ??
+    process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
     throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY"
+      "Missing NEXT_PUBLIC_SUPABASE_URL and one of SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY"
     );
   }
 

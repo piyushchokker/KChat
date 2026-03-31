@@ -9,11 +9,29 @@ import ChatInput, { type ChatInputRef } from "./chat-input";
 import SuggestedQuestions from "./suggested-questions";
 import { SUGGESTED_QUESTIONS, APP_NAME } from "@/utils/constants";
 
-export default function ChatContainer() {
-  const { messages, isLoading, sendMessage } = useChatStore();
+interface ChatContainerProps {
+  initialRetSessionId?: string | null;
+}
+
+export default function ChatContainer({ initialRetSessionId }: ChatContainerProps) {
+  const {
+    messages,
+    isLoading,
+    sendMessage,
+    initializeRetSession,
+    loadRetSessionHistory,
+  } = useChatStore();
   const { syncWithSupabase, isSynced } = useAuthStore();
   const bottomRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputRef>(null);
+
+  useEffect(() => {
+    initializeRetSession(initialRetSessionId);
+
+    if (initialRetSessionId?.trim()) {
+      void loadRetSessionHistory(initialRetSessionId);
+    }
+  }, [initialRetSessionId, initializeRetSession, loadRetSessionHistory]);
 
   // Sync user with Supabase on first load
   useEffect(() => {

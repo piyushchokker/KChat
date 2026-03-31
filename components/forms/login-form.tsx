@@ -30,7 +30,7 @@ export default function LoginForm() {
       setError(loginError.message || "Login failed");
       setLoading(false);
     } else {
-      const redirectPath = role === "registrar" ? "/registrar/dashboard" : "/student/dashboard";
+      const redirectPath = role === "registrar" ? "/registrar/dashboard" : "/student/chat";
       window.location.href = redirectPath;
     }
   };

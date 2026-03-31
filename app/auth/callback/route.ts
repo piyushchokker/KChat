@@ -1,8 +1,9 @@
 import { createServerClient, createAdminClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 
-const DEFAULT_REDIRECT_PATH = "/student/dashboard";
+const DEFAULT_REDIRECT_PATH = "/student/chat";
 const ALLOWED_REDIRECT_PREFIXES = [
+  "/student/chat",
   "/student/dashboard",
   "/student/banned",
   "/registrar/dashboard",

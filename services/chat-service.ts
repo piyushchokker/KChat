@@ -2,6 +2,7 @@ import type { ChatMessage, DocumentSource } from "@/types";
 
 export interface ChatApiResponse {
   conversationId: string;
+  sessionId?: string;
   userMessage: {
     id: string;
     role: string;
@@ -20,6 +21,7 @@ export interface ChatApiResponse {
 
 export interface ChatStreamMeta {
   conversationId: string;
+  sessionId?: string;
   userMessage: {
     id: string;
     role: string;
@@ -29,6 +31,7 @@ export interface ChatStreamMeta {
 }
 
 export interface ChatStreamDone {
+  sessionId?: string;
   assistantMessage: {
     id: string;
     role: string;
@@ -51,6 +54,17 @@ export interface ConversationSummary {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+interface RetHistoryMessage {
+  role: string;
+  content: string;
+  timestamp?: string | number | null;
+}
+
+interface RetHistoryResponse {
+  sessionId: string;
+  messages: RetHistoryMessage[];
 }
 
 function parseSseEvent(block: string): { event: string; data: string } | null {
@@ -79,12 +93,13 @@ function parseSseEvent(block: string): { event: string; data: string } | null {
 export async function sendChatMessageStream(
   query: string,
   conversationId: string | undefined,
+  sessionId: string | undefined,
   handlers: SendChatMessageStreamHandlers
 ): Promise<void> {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, conversationId }),
+    body: JSON.stringify({ query, conversationId, sessionId }),
   });
 
   if (!res.ok) {
@@ -98,10 +113,14 @@ export async function sendChatMessageStream(
     const data = (await res.json()) as ChatApiResponse;
     handlers.onMeta?.({
       conversationId: data.conversationId,
+      sessionId: data.sessionId,
       userMessage: data.userMessage,
     });
     handlers.onDelta?.(data.assistantMessage.content);
-    handlers.onDone?.({ assistantMessage: data.assistantMessage });
+    handlers.onDone?.({
+      assistantMessage: data.assistantMessage,
+      sessionId: data.sessionId,
+    });
     return;
   }
 
@@ -176,5 +195,71 @@ export async function deleteConversation(
   await fetch(`/api/chat/conversations/${conversationId}`, {
     method: "DELETE",
   });
+}
+
+function toMessageDate(timestamp: string | number | null | undefined): Date {
+  if (typeof timestamp === "number" && Number.isFinite(timestamp)) {
+    return new Date(timestamp < 1_000_000_000_000 ? timestamp * 1000 : timestamp);
+  }
+
+  if (typeof timestamp === "string") {
+    const trimmed = timestamp.trim();
+
+    if (/^\d+$/.test(trimmed)) {
+      const numeric = Number.parseInt(trimmed, 10);
+      if (Number.isFinite(numeric)) {
+        return new Date(numeric < 1_000_000_000_000 ? numeric * 1000 : numeric);
+      }
+    }
+
+    const parsed = Date.parse(trimmed);
+    if (!Number.isNaN(parsed)) {
+      return new Date(parsed);
+    }
+  }
+
+  return new Date();
+}
+
+/**
+ * Get RET chat history for a specific session id.
+ */
+export async function getRetSessionHistory(
+  sessionId: string
+): Promise<ChatMessage[]> {
+  const normalizedSessionId = sessionId.trim().toLowerCase();
+
+  if (!normalizedSessionId) {
+    return [];
+  }
+
+  const res = await fetch(
+    `/api/chat/session/${encodeURIComponent(normalizedSessionId)}/history`,
+    { cache: "no-store" }
+  );
+
+  if (!res.ok) {
+    const err = await res
+      .json()
+      .catch(() => ({ error: "Failed to load session history" }));
+    throw new Error(err.error ?? "Failed to load session history");
+  }
+
+  const payload = (await res.json()) as RetHistoryResponse;
+  const rawMessages = Array.isArray(payload.messages) ? payload.messages : [];
+
+  return rawMessages
+    .filter(
+      (message) =>
+        (message.role === "user" || message.role === "assistant") &&
+        typeof message.content === "string" &&
+        message.content.trim().length > 0
+    )
+    .map((message, index) => ({
+      id: `${normalizedSessionId}-${index}-${message.role}`,
+      role: message.role as "user" | "assistant",
+      content: message.content,
+      timestamp: toMessageDate(message.timestamp),
+    }));
 }
 

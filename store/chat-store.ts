@@ -7,6 +7,7 @@ import {
   getConversations,
   getConversationMessages,
   deleteConversation,
+  getRetSessionHistory,
   type ConversationSummary,
 } from "@/services/chat-service";
 
@@ -14,9 +15,12 @@ interface ChatState {
   messages: ChatMessage[];
   conversations: ConversationSummary[];
   activeConversationId: string | null;
+  retSessionId: string | null;
   isLoading: boolean;
   error: string | null;
 
+  initializeRetSession: (sessionId?: string | null) => void;
+  loadRetSessionHistory: (sessionId: string) => Promise<void>;
   sendMessage: (query: string) => Promise<void>;
   loadConversations: () => Promise<void>;
   loadConversation: (conversationId: string) => Promise<void>;
@@ -29,8 +33,79 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   conversations: [],
   activeConversationId: null,
+  retSessionId: null,
   isLoading: false,
   error: null,
+
+  initializeRetSession: (sessionId) => {
+    const incoming = typeof sessionId === "string" ? sessionId.trim() : "";
+
+    if (incoming.length > 0) {
+      set((state) => {
+        if (state.retSessionId === incoming) {
+          return state;
+        }
+
+        return {
+          retSessionId: incoming,
+          activeConversationId: null,
+          messages: [],
+          error: null,
+        };
+      });
+      return;
+    }
+
+    if (!get().retSessionId) {
+      set({ retSessionId: null });
+    }
+  },
+
+  loadRetSessionHistory: async (sessionId) => {
+    const normalized = sessionId.trim().toLowerCase();
+
+    if (!normalized) {
+      set({ messages: [] });
+      return;
+    }
+
+    const initialMessageCount = get().messages.length;
+
+    set({ isLoading: true, error: null });
+
+    try {
+      const historyMessages = await getRetSessionHistory(normalized);
+
+      set((state) => {
+        if (state.retSessionId !== normalized) {
+          return state;
+        }
+
+        // Prevent late history fetches from overwriting in-flight/new messages.
+        if (state.messages.length !== initialMessageCount) {
+          return { isLoading: false };
+        }
+
+        return {
+          messages: historyMessages,
+          isLoading: false,
+          error: null,
+        };
+      });
+    } catch (err) {
+      set((state) => {
+        if (state.retSessionId !== normalized) {
+          return state;
+        }
+
+        return {
+          isLoading: false,
+          error:
+            err instanceof Error ? err.message : "Failed to load chat history",
+        };
+      });
+    }
+  },
 
   sendMessage: async (query) => {
     const now = Date.now();
@@ -59,10 +134,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       await sendChatMessageStream(
         query,
         get().activeConversationId ?? undefined,
+        get().retSessionId ?? undefined,
         {
           onMeta: (meta) => {
             set((state) => ({
               activeConversationId: meta.conversationId,
+              retSessionId: meta.sessionId ?? state.retSessionId,
               messages: state.messages.map((m) => {
                 if (m.id === userMessage.id) {
                   return {
@@ -87,6 +164,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           },
           onDone: (done) => {
             set((state) => ({
+              retSessionId: done.sessionId ?? state.retSessionId,
               messages: state.messages.map((m) =>
                 m.id === assistantMessageId
                   ? {

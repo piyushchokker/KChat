@@ -6,9 +6,9 @@ export default async function Home() {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // If already signed in, go straight to student dashboard
+  // If already signed in, go straight to student chat
   if (user) {
-    redirect("/student/dashboard");
+    redirect("/student/chat");
   }
 
   return <HomeClient />;

@@ -21,6 +21,7 @@ type StreamedAiResponse = {
   answer: string;
   confidence: number;
   sources: Json[];
+  sessionId?: string;
 };
 
 function getPositiveIntEnv(name: string, fallback: number): number {
@@ -70,7 +71,8 @@ async function waitMs(ms: number) {
 
 async function fetchWithRetry(
   backendUrl: string,
-  query: string
+  query: string,
+  sessionId?: string
 ): Promise<Response> {
   const timeoutMs = getPositiveIntEnv(
     "CHAT_BACKEND_TIMEOUT_MS",
@@ -98,7 +100,14 @@ async function fetchWithRetry(
           "Content-Type": "application/json",
           "ngrok-skip-browser-warning": "true",
         },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify(
+          sessionId
+            ? {
+                query,
+                session_id: sessionId,
+              }
+            : { query }
+        ),
         signal: controller.signal,
       });
 
@@ -140,7 +149,7 @@ async function fetchWithRetry(
  * Send a chat message and get an AI response.
  * Persists both user and assistant messages to Supabase.
  *
- * Body: { query: string, conversationId?: string }
+ * Body: { query: string, conversationId?: string, sessionId?: string }
  */
 export async function POST(req: Request) {
   const resilience = getChatResilienceManager();
@@ -212,8 +221,12 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { query, conversationId } = body;
+  const { query, conversationId, sessionId } = body;
   const trimmedQuery = typeof query === "string" ? query.trim() : "";
+  const trimmedSessionId =
+    typeof sessionId === "string" && sessionId.trim().length > 0
+      ? sessionId.trim()
+      : undefined;
 
   if (!trimmedQuery) {
     return NextResponse.json(
@@ -315,6 +328,7 @@ export async function POST(req: Request) {
 
       enqueue("meta", {
         conversationId: activeConversationId,
+        sessionId: trimmedSessionId,
         userMessage: {
           id: userMsg.id,
           role: userMsg.role,
@@ -326,6 +340,7 @@ export async function POST(req: Request) {
       (async () => {
         const aiResponse = await streamPythonBackend(
           trimmedQuery,
+          trimmedSessionId,
           (delta) => {
             enqueue("delta", { text: delta });
           },
@@ -355,6 +370,7 @@ export async function POST(req: Request) {
           .eq("id", activeConversationId);
 
         enqueue("done", {
+          sessionId: aiResponse.sessionId ?? trimmedSessionId,
           assistantMessage: {
             id: assistantMsg.id,
             role: assistantMsg.role,
@@ -455,6 +471,7 @@ function normalizeFinalPayload(payload: unknown): StreamedAiResponse {
 
 async function streamPythonBackend(
   query: string,
+  sessionId: string | undefined,
   onDelta: (delta: string) => void,
   resilience: ChatResilienceManager
 ): Promise<StreamedAiResponse> {
@@ -480,7 +497,8 @@ async function streamPythonBackend(
   }
 
   try {
-    const res = await fetchWithRetry(backendUrl, query);
+    const res = await fetchWithRetry(backendUrl, query, sessionId);
+    const resolvedSessionId = res.headers.get("x-session-id") ?? sessionId;
 
     const contentType = res.headers.get("content-type") ?? "";
 
@@ -491,7 +509,10 @@ async function streamPythonBackend(
       if (normalized.answer) {
         onDelta(normalized.answer);
       }
-      return normalized;
+      return {
+        ...normalized,
+        sessionId: resolvedSessionId,
+      };
     }
 
     if (!res.body) {
@@ -578,6 +599,7 @@ async function streamPythonBackend(
       answer: fullAnswer,
       confidence,
       sources,
+      sessionId: resolvedSessionId,
     };
   } catch (err) {
     const threshold = getPositiveIntEnv(
@@ -595,6 +617,7 @@ async function streamPythonBackend(
         "I'm sorry, I couldn't reach the knowledge base right now. Please try again in a moment.",
       confidence: 0,
       sources: [],
+      sessionId,
     };
   }
 }

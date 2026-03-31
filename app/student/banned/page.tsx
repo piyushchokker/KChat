@@ -22,9 +22,9 @@ export default async function StudentBanned() {
     .eq("auth_id", authUser.id)
     .single();
 
-  // If user is actually allowed, send them back to dashboard
+  // If user is actually allowed, send them back to chat
   if (data?.is_allowed !== false) {
-    redirect("/student/dashboard");
+    redirect("/student/chat");
   }
 
   return (

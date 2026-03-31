@@ -84,6 +84,7 @@ export async function middleware(request: NextRequest) {
 
   // Protected routes — redirect to sign-in if not authenticated
   const isProtected =
+    pathname.startsWith("/student/chat") ||
     pathname.startsWith("/student/dashboard") ||
     pathname.startsWith("/registrar/dashboard") ||
     pathname.startsWith("/api/auth/sync") ||

@@ -15,7 +15,7 @@ export default function StudentLoginPage() {
       await supabase.auth.signInWithOAuth({
         provider: "azure",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/student/dashboard`,
+          redirectTo: `${window.location.origin}/auth/callback?next=/student/chat`,
           scopes: "openid email profile",
         },
       });

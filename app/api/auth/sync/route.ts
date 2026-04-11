@@ -18,6 +18,7 @@ function getEmailDomain(email: string): string {
 
 type ExistingUser = {
   id: string;
+  auth_id: string;
   role: string;
   is_allowed: boolean;
 };
@@ -76,10 +77,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Email domain is not allowed" }, { status: 403 });
   }
 
-  const registrarAllowlist = new Set(
-    parseCsvEnv(process.env.REGISTRAR_EMAIL_ALLOWLIST)
-  );
-
   const meta = user.user_metadata ?? {};
 
   // Microsoft Azure: extract actual name (strip roll number from full_name)
@@ -92,7 +89,7 @@ export async function POST(req: Request) {
   // Check auth_id first so a synced registrar cannot be downgraded by email mismatch/casing issues.
   const { data: existingByAuth } = await admin
     .from("users")
-    .select("id, role, is_allowed")
+    .select("id, auth_id, role, is_allowed")
     .eq("auth_id", user.id)
     .maybeSingle();
 
@@ -100,7 +97,7 @@ export async function POST(req: Request) {
   if (!existingUser) {
     const { data: existingByEmail } = await admin
       .from("users")
-      .select("id, role, is_allowed")
+      .select("id, auth_id, role, is_allowed")
       .ilike("email", email)
       .maybeSingle();
     existingUser = existingByEmail;
@@ -113,29 +110,24 @@ export async function POST(req: Request) {
     );
   }
 
-  const role = existingUser?.role
-    ? existingUser.role
-    : registrarAllowlist.has(email)
-      ? "registrar"
-      : "student";
+  const role = existingUser?.role ?? "student";
+  const isAllowed = existingUser?.is_allowed ?? true;
 
-  // Upsert user into Supabase
-  const { data, error } = await admin
-    .from("users")
-    .upsert(
-      {
-        auth_id: user.id,
-        email,
-        name,
-        role,
-        is_allowed: existingUser?.is_allowed ?? true,
-        roll_number: role === "student" ? rollNumber : null,
-        image_url: meta.avatar_url ?? null,
-      },
-      { onConflict: "auth_id" }
-    )
-    .select()
-    .single();
+  const userPayload = {
+    auth_id: user.id,
+    email,
+    name,
+    role,
+    is_allowed: isAllowed,
+    roll_number: role === "student" ? rollNumber : null,
+    image_url: meta.avatar_url ?? null,
+  };
+
+  const query = existingUser
+    ? admin.from("users").update(userPayload).eq("id", existingUser.id)
+    : admin.from("users").insert(userPayload);
+
+  const { data, error } = await query.select().single();
 
   if (error) {
     console.error("Failed to sync user:", error);

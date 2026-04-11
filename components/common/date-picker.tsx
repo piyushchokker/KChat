@@ -38,10 +38,13 @@ export default function DatePicker({
   locale = "en-US",
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const selectedDate = value || "";
+  const initialViewDate = selectedDate
+    ? parseLocalDate(selectedDate) ?? new Date()
+    : new Date();
   const [displayDate, setDisplayDate] = useState<Date>(
-    value ? parseLocalDate(value) ?? new Date() : new Date()
+    initialViewDate
   );
-  const [selectedDate, setSelectedDate] = useState<string>(value || "");
   const pickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,18 +58,16 @@ export default function DatePicker({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    const normalized = value || "";
-    setSelectedDate(normalized);
-    if (normalized) {
-      const nextDate = parseLocalDate(normalized);
-      if (nextDate) {
-        setDisplayDate(nextDate);
-      }
-      return;
+  const handleToggleOpen = () => {
+    if (!isOpen) {
+      const nextViewDate = selectedDate
+        ? parseLocalDate(selectedDate) ?? new Date()
+        : new Date();
+      setDisplayDate(nextViewDate);
     }
-    setDisplayDate(new Date());
-  }, [value]);
+
+    setIsOpen((prev) => !prev);
+  };
 
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -96,7 +97,6 @@ export default function DatePicker({
   const handleDateClick = (day: number) => {
     const selected = new Date(displayDate.getFullYear(), displayDate.getMonth(), day);
     const formatted = formatLocalDate(selected);
-    setSelectedDate(formatted);
     onChange(formatted);
     setIsOpen(false);
   };
@@ -112,14 +112,12 @@ export default function DatePicker({
   const handleToday = () => {
     const today = new Date();
     const formatted = formatLocalDate(today);
-    setSelectedDate(formatted);
     onChange(formatted);
     setDisplayDate(today);
     setIsOpen(false);
   };
 
   const handleClear = () => {
-    setSelectedDate("");
     onChange("");
     setDisplayDate(new Date());
   };
@@ -153,7 +151,7 @@ export default function DatePicker({
 
       {/* Input Field */}
       <div
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggleOpen}
         className="flex cursor-pointer items-center justify-between rounded-lg border border-gray-300 bg-white px-4 py-2 transition-all hover:border-blue-400 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200"
       >
         <span className={selectedDate ? "text-gray-900" : "text-gray-400"}>

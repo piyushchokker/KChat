@@ -4,6 +4,11 @@
 import { useState } from "react";
 import { createBrowserClient } from "@/lib/supabase";
 
+type ProfileResponse = {
+  role?: string;
+  is_allowed?: boolean;
+};
+
 
 export default function RegistrarLoginPage() {
   const [email, setEmail] = useState("");
@@ -25,15 +30,41 @@ export default function RegistrarLoginPage() {
       setLoading(false);
       return;
     }
-    // Fetch the current user
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user?.email === "registraroffice@krmangalam.edu.in") {
-      window.location.href = "/registrar/dashboard";
-    } else {
+
+    const syncResponse = await fetch("/api/auth/sync", { method: "POST" });
+    if (!syncResponse.ok) {
+      const payload = (await syncResponse
+        .json()
+        .catch(() => ({ error: "Failed to sync account." }))) as {
+        error?: string;
+      };
+
       await supabase.auth.signOut();
-      setError("Unauthorized: Only registrar can log in here.");
+      setError(payload.error || "Failed to sync account.");
       setLoading(false);
+      return;
     }
+
+    const profileResponse = await fetch("/api/user/profile", { cache: "no-store" });
+    if (!profileResponse.ok) {
+      await supabase.auth.signOut();
+      setError("Unable to verify registrar access.");
+      setLoading(false);
+      return;
+    }
+
+    const profile = (await profileResponse.json()) as ProfileResponse;
+    const isAuthorizedRegistrar =
+      profile.role === "registrar" && profile.is_allowed !== false;
+
+    if (!isAuthorizedRegistrar) {
+      await supabase.auth.signOut();
+      setError("Unauthorized: your account is not an allowed registrar.");
+      setLoading(false);
+      return;
+    }
+
+    window.location.replace("/registrar/dashboard");
   };
 
   return (

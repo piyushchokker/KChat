@@ -16,12 +16,16 @@ const DEFAULT_BACKEND_RETRIES = 2;
 const DEFAULT_RETRY_BASE_DELAY_MS = 400;
 const DEFAULT_CIRCUIT_FAILURE_THRESHOLD = 5;
 const DEFAULT_CIRCUIT_OPEN_MS = 30_000;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type StreamedAiResponse = {
   answer: string;
   confidence: number;
   sources: Json[];
   sessionId?: string;
+  ragUsed?: boolean;
+  ragRouterDecision?: "true" | "false" | "none";
 };
 
 function getPositiveIntEnv(name: string, fallback: number): number {
@@ -63,6 +67,25 @@ function isRetryableError(err: unknown): boolean {
     message.includes("fetch failed") ||
     err.name === "AbortError"
   );
+}
+
+function parseRagUsedHeader(value: string | null): boolean | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  return undefined;
+}
+
+function parseRagRouterDecisionHeader(
+  value: string | null
+): "true" | "false" | "none" | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true" || normalized === "false" || normalized === "none") {
+    return normalized;
+  }
+  return undefined;
 }
 
 async function waitMs(ms: number) {
@@ -223,9 +246,13 @@ export async function POST(req: Request) {
   const body = await req.json();
   const { query, conversationId, sessionId } = body;
   const trimmedQuery = typeof query === "string" ? query.trim() : "";
+  const trimmedConversationId =
+    typeof conversationId === "string" && conversationId.trim().length > 0
+      ? conversationId.trim()
+      : undefined;
   const trimmedSessionId =
     typeof sessionId === "string" && sessionId.trim().length > 0
-      ? sessionId.trim()
+      ? sessionId.trim().toLowerCase()
       : undefined;
 
   if (!trimmedQuery) {
@@ -257,7 +284,48 @@ export async function POST(req: Request) {
     );
   }
 
-  let activeConversationId = conversationId;
+  if (trimmedSessionId && !UUID_PATTERN.test(trimmedSessionId)) {
+    return NextResponse.json({ error: "Invalid session id" }, { status: 400 });
+  }
+
+  let activeConversationId = trimmedConversationId;
+  let conversationSessionId: string | null = null;
+  let existingSessionConversationId: string | null = null;
+
+  if (trimmedSessionId) {
+    const { data: sessionConversation } = await admin
+      .from("conversations")
+      .select("id, user_id")
+      .eq("ret_session_id", trimmedSessionId)
+      .maybeSingle();
+
+    if (sessionConversation) {
+      if (sessionConversation.user_id !== user.id) {
+        return NextResponse.json(
+          { error: "Session is not accessible" },
+          { status: 403 }
+        );
+      }
+
+      existingSessionConversationId = sessionConversation.id;
+    }
+  }
+
+  if (!activeConversationId && existingSessionConversationId) {
+    activeConversationId = existingSessionConversationId;
+  }
+
+  if (
+    trimmedSessionId &&
+    activeConversationId &&
+    existingSessionConversationId &&
+    existingSessionConversationId !== activeConversationId
+  ) {
+    return NextResponse.json(
+      { error: "Session is already linked to another conversation" },
+      { status: 409 }
+    );
+  }
 
   // Create new conversation if none provided
   if (!activeConversationId) {
@@ -269,8 +337,9 @@ export async function POST(req: Request) {
       .insert({
         user_id: user.id,
         title,
+        ret_session_id: trimmedSessionId ?? null,
       })
-      .select()
+      .select("id, ret_session_id")
       .single();
 
     if (convError || !conv) {
@@ -281,12 +350,13 @@ export async function POST(req: Request) {
     }
 
     activeConversationId = conv.id;
+    conversationSessionId = conv.ret_session_id;
   } else {
     // Verify conversation belongs to user
     const { data: conv } = await admin
       .from("conversations")
-      .select("id")
-      .eq("id", conversationId)
+      .select("id, ret_session_id")
+      .eq("id", activeConversationId)
       .eq("user_id", user.id)
       .single();
 
@@ -296,7 +366,42 @@ export async function POST(req: Request) {
         { status: 404 }
       );
     }
+
+    conversationSessionId = conv.ret_session_id;
+
+    if (
+      trimmedSessionId &&
+      conversationSessionId &&
+      conversationSessionId !== trimmedSessionId
+    ) {
+      return NextResponse.json(
+        { error: "Session does not match conversation" },
+        { status: 409 }
+      );
+    }
+
+    if (trimmedSessionId && !conversationSessionId) {
+      const { error: attachSessionError } = await admin
+        .from("conversations")
+        .update({
+          ret_session_id: trimmedSessionId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", activeConversationId)
+        .eq("user_id", user.id);
+
+      if (attachSessionError) {
+        return NextResponse.json(
+          { error: "Failed to attach session" },
+          { status: 500 }
+        );
+      }
+
+      conversationSessionId = trimmedSessionId;
+    }
   }
+
+  const effectiveSessionId = trimmedSessionId ?? conversationSessionId ?? undefined;
 
   // Save user message
   const { data: userMsg, error: userMsgError } = await admin
@@ -328,7 +433,7 @@ export async function POST(req: Request) {
 
       enqueue("meta", {
         conversationId: activeConversationId,
-        sessionId: trimmedSessionId,
+        sessionId: effectiveSessionId,
         userMessage: {
           id: userMsg.id,
           role: userMsg.role,
@@ -340,7 +445,7 @@ export async function POST(req: Request) {
       (async () => {
         const aiResponse = await streamPythonBackend(
           trimmedQuery,
-          trimmedSessionId,
+          effectiveSessionId,
           (delta) => {
             enqueue("delta", { text: delta });
           },
@@ -364,13 +469,24 @@ export async function POST(req: Request) {
           return;
         }
 
+        const normalizedResponseSessionId =
+          typeof aiResponse.sessionId === "string" && aiResponse.sessionId.trim().length > 0
+            ? aiResponse.sessionId.trim().toLowerCase()
+            : undefined;
+        const persistedSessionId = normalizedResponseSessionId ?? effectiveSessionId;
+
         await admin
           .from("conversations")
-          .update({ updated_at: new Date().toISOString() })
+          .update({
+            updated_at: new Date().toISOString(),
+            ret_session_id: persistedSessionId ?? null,
+          })
           .eq("id", activeConversationId);
 
         enqueue("done", {
-          sessionId: aiResponse.sessionId ?? trimmedSessionId,
+          sessionId: persistedSessionId,
+          ragUsed: aiResponse.ragUsed,
+          ragRouterDecision: aiResponse.ragRouterDecision,
           assistantMessage: {
             id: assistantMsg.id,
             role: assistantMsg.role,
@@ -499,6 +615,10 @@ async function streamPythonBackend(
   try {
     const res = await fetchWithRetry(backendUrl, query, sessionId);
     const resolvedSessionId = res.headers.get("x-session-id") ?? sessionId;
+    const ragUsed = parseRagUsedHeader(res.headers.get("x-rag-used"));
+    const ragRouterDecision = parseRagRouterDecisionHeader(
+      res.headers.get("x-rag-router-decision")
+    );
 
     const contentType = res.headers.get("content-type") ?? "";
 
@@ -512,6 +632,8 @@ async function streamPythonBackend(
       return {
         ...normalized,
         sessionId: resolvedSessionId,
+        ragUsed,
+        ragRouterDecision,
       };
     }
 
@@ -600,6 +722,8 @@ async function streamPythonBackend(
       confidence,
       sources,
       sessionId: resolvedSessionId,
+      ragUsed,
+      ragRouterDecision,
     };
   } catch (err) {
     const threshold = getPositiveIntEnv(

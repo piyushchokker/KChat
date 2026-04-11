@@ -20,6 +20,8 @@ export default function ChatContainer({ initialRetSessionId }: ChatContainerProp
     sendMessage,
     initializeRetSession,
     loadRetSessionHistory,
+    lastRagUsed,
+    lastRagRouterDecision,
   } = useChatStore();
   const { syncWithSupabase, isSynced } = useAuthStore();
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -66,6 +68,7 @@ export default function ChatContainer({ initialRetSessionId }: ChatContainerProp
   const visibleMessages = messages.filter(
     (m) => !(m.role === "assistant" && m.content.trim().length === 0)
   );
+  const showRoutingStatus = lastRagRouterDecision !== null || lastRagUsed !== null;
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
@@ -123,6 +126,11 @@ export default function ChatContainer({ initialRetSessionId }: ChatContainerProp
       {/* Input bar – pinned to bottom */}
       <div className="relative z-10 border-t border-gray-100 bg-white/90 backdrop-blur-sm px-4 py-4 sm:px-8">
         <div className="mx-auto max-w-4xl">
+          {showRoutingStatus ? (
+            <p className="mb-2 text-xs text-gray-500">
+              Router: {lastRagRouterDecision ?? "unknown"} | RAG used: {lastRagUsed === null ? "unknown" : String(lastRagUsed)}
+            </p>
+          ) : null}
           <ChatInput ref={chatInputRef} onSend={handleSend} disabled={isLoading} />
         </div>
       </div>

@@ -3,6 +3,8 @@ import type { ChatMessage, DocumentSource } from "@/types";
 export interface ChatApiResponse {
   conversationId: string;
   sessionId?: string;
+  ragUsed?: boolean;
+  ragRouterDecision?: "true" | "false" | "none";
   userMessage: {
     id: string;
     role: string;
@@ -32,6 +34,8 @@ export interface ChatStreamMeta {
 
 export interface ChatStreamDone {
   sessionId?: string;
+  ragUsed?: boolean;
+  ragRouterDecision?: "true" | "false" | "none";
   assistantMessage: {
     id: string;
     role: string;

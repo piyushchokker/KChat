@@ -1,8 +1,10 @@
+import Link from "next/link";
 import { createAdminClient, createServerClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
-import RegistrarDashboardClient from "./registrar-dashboard-client";
+import RegistrarLayout from "@/components/layout/registrar-layout";
+import StudentManagement from "@/components/forms/student-management";
 
-export default async function RegistrarDashboard() {
+export default async function RegistrarStudentsPage() {
   const supabase = await createServerClient();
   const {
     data: { user: authUser },
@@ -23,7 +25,6 @@ export default async function RegistrarDashboard() {
 
   let appUser = byAuthId;
 
-  // Recover auth_id drift for existing approved registrar accounts.
   if (!appUser && normalizedEmail) {
     const { data: byEmail } = await admin
       .from("users")
@@ -48,12 +49,33 @@ export default async function RegistrarDashboard() {
   }
 
   return (
-    <RegistrarDashboardClient
+    <RegistrarLayout
       user={{
         name: authUser.user_metadata?.name || "Registrar",
         email: authUser.email ?? normalizedEmail,
         imageUrl: authUser.user_metadata?.imageUrl || undefined,
       }}
-    />
+    >
+      <div className="flex-1 p-6 sm:p-8">
+        <div className="mx-auto max-w-6xl rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Student Management</h1>
+              <p className="mt-1 text-sm text-gray-500">
+                View and edit student records from the users table
+              </p>
+            </div>
+            <Link
+              href="/registrar/dashboard"
+              className="inline-flex h-10 items-center justify-center rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+            >
+              Back to Dashboard
+            </Link>
+          </div>
+
+          <StudentManagement />
+        </div>
+      </div>
+    </RegistrarLayout>
   );
 }

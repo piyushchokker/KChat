@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import RegistrarLayout from "@/components/layout/registrar-layout";
 import DocumentUploadForm from "@/components/forms/document-upload-form";
 import DocumentList from "@/components/forms/document-list";
@@ -21,6 +22,14 @@ export default function RegistrarDashboardClient({
   return (
     <RegistrarLayout user={user}>
       <div className="flex-1 p-6 sm:p-8">
+        <div className="mx-auto mb-4 flex max-w-6xl justify-end">
+          <Link
+            href="/registrar/dashboard/students"
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+          >
+            Manage Students
+          </Link>
+        </div>
         <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2">
           {/* Left panel – Upload */}
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -35,7 +44,13 @@ export default function RegistrarDashboardClient({
             <DocumentUploadForm />
             <div className="mt-8">
               <h3 className="text-lg font-semibold mb-2">Uploaded Documents</h3>
-              <DocumentList />
+              <p className="mb-3 text-sm text-gray-500">Showing 5 most recent uploads</p>
+              <DocumentList
+                limit={5}
+                mineOnly
+                showDelete={false}
+                showSeeAllButton
+              />
             </div>
           </div>
 

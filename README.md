@@ -27,7 +27,6 @@ Create `.env.local` from `.env.example` and set:
 - `PYTHON_BACKEND_URL`
 - `PYTHON_BACKEND_SESSION_URL` (optional)
 - `TRUSTED_EMAIL_DOMAINS`
-- `REGISTRAR_EMAIL_ALLOWLIST`
 - `CHAT_RATE_LIMIT_WINDOW_MS`
 - `CHAT_RATE_LIMIT_PER_USER`
 - `CHAT_RATE_LIMIT_PER_IP`
@@ -49,8 +48,9 @@ Redis-backed resilience:
 
 Role assignment hardening:
 
-- Registrar role is granted only by explicit allowlist or existing server-side user record.
-- Never derive privileged role from email substrings.
+- Privileged roles (`admin`, `registrar`) are enforced from `public.users` only.
+- Login flows sync auth users but do not grant privileged roles from client input or email heuristics.
+- Set and approve privileged roles server-side in Supabase (`role` + `is_allowed`).
 
 Security rules:
 

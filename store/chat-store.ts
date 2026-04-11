@@ -16,6 +16,8 @@ interface ChatState {
   conversations: ConversationSummary[];
   activeConversationId: string | null;
   retSessionId: string | null;
+  lastRagUsed: boolean | null;
+  lastRagRouterDecision: "true" | "false" | "none" | null;
   isLoading: boolean;
   error: string | null;
 
@@ -34,6 +36,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   conversations: [],
   activeConversationId: null,
   retSessionId: null,
+  lastRagUsed: null,
+  lastRagRouterDecision: null,
   isLoading: false,
   error: null,
 
@@ -50,6 +54,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           retSessionId: incoming,
           activeConversationId: null,
           messages: [],
+          lastRagUsed: null,
+          lastRagRouterDecision: null,
           error: null,
         };
       });
@@ -126,6 +132,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set((state) => ({
       messages: [...state.messages, userMessage, assistantPlaceholder],
+      lastRagUsed: null,
+      lastRagRouterDecision: null,
       isLoading: true,
       error: null,
     }));
@@ -165,6 +173,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           onDone: (done) => {
             set((state) => ({
               retSessionId: done.sessionId ?? state.retSessionId,
+              lastRagUsed: done.ragUsed ?? null,
+              lastRagRouterDecision: done.ragRouterDecision ?? null,
               messages: state.messages.map((m) =>
                 m.id === assistantMessageId
                   ? {
@@ -230,6 +240,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({
       messages: [],
       activeConversationId: null,
+      lastRagUsed: null,
+      lastRagRouterDecision: null,
       error: null,
     });
   },
@@ -252,6 +264,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({
       messages: [],
       activeConversationId: null,
+      lastRagUsed: null,
+      lastRagRouterDecision: null,
       error: null,
     }),
 }));

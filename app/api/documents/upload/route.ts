@@ -2,13 +2,6 @@ import { NextResponse } from "next/server";
 import { createServerClient, createAdminClient } from "@/lib/supabase-server";
 import { z } from "zod";
 
-function parseCsvEnv(value: string | undefined): string[] {
-  return (value ?? "")
-    .split(",")
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
-}
-
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set([
   ".pdf",
@@ -185,49 +178,14 @@ export async function POST(req: Request) {
   }
 
   const admin = createAdminClient();
-  const authEmail = (authUser.email ?? "").trim().toLowerCase();
-  const registrarAllowlist = new Set(
-    parseCsvEnv(process.env.REGISTRAR_EMAIL_ALLOWLIST)
-  );
 
-  // Get internal user ID
-  let { data: user } = await admin
+  const { data: user } = await admin
     .from("users")
-    .select("id, role")
+    .select("id, role, is_allowed")
     .eq("auth_id", authUser.id)
     .maybeSingle();
 
-  const isAllowlistedRegistrar = authEmail && registrarAllowlist.has(authEmail);
-
-  // If DB role is stale but auth email is explicitly allowlisted, reconcile role.
-  if ((!user || user.role !== "registrar") && isAllowlistedRegistrar) {
-    const { data: reconciledUser } = await admin
-      .from("users")
-      .upsert(
-        {
-          auth_id: authUser.id,
-          email: authEmail,
-          name:
-            ((authUser.user_metadata?.given_name ||
-              authUser.user_metadata?.name ||
-              authUser.user_metadata?.full_name ||
-              authEmail) as string) ?? authEmail,
-          role: "registrar",
-          is_allowed: true,
-          roll_number: null,
-          image_url: authUser.user_metadata?.avatar_url ?? null,
-        },
-        { onConflict: "auth_id" }
-      )
-      .select("id, role")
-      .single();
-
-    if (reconciledUser) {
-      user = reconciledUser;
-    }
-  }
-
-  if (!user || user.role !== "registrar") {
+  if (!user || user.role !== "registrar" || user.is_allowed === false) {
     return NextResponse.json(
       { error: "Only registrars can upload documents" },
       { status: 403 }
@@ -426,12 +384,16 @@ export async function GET(req: Request) {
 
   const { data: currentUser } = await admin
     .from("users")
-    .select("id, role")
+    .select("id, role, is_allowed")
     .eq("auth_id", authUser.id)
     .single();
 
   if (!currentUser) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  if (currentUser.is_allowed === false) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const isRegistrar = currentUser.role === "registrar";
@@ -459,13 +421,31 @@ export async function GET(req: Request) {
   const visibility = searchParams.get("visibility");
   if (visibility) query = query.eq("visibility", visibility);
 
+  const mineOnly = searchParams.get("mine") === "true";
+  if (mineOnly && isRegistrar) {
+    query = query.eq("uploaded_by", currentUser.id);
+  }
+
+  const searchQuery = searchParams.get("q")?.trim() ?? "";
+  if (searchQuery) {
+    const safeQuery = searchQuery.replace(/[^a-zA-Z0-9\s._-]/g, " ").trim();
+    if (safeQuery) {
+      query = query.or(`title.ilike.%${safeQuery}%,file_name.ilike.%${safeQuery}%`);
+    }
+  }
+
   // removed status and year filters
+
+  const fetchAll = searchParams.get("all") === "true";
 
   // Pagination
   const page = parseInt(searchParams.get("page") || "1");
   const limit = parseInt(searchParams.get("limit") || "20");
-  const from = (page - 1) * limit;
-  query = query.range(from, from + limit - 1);
+
+  if (!fetchAll) {
+    const from = (page - 1) * limit;
+    query = query.range(from, from + limit - 1);
+  }
 
   const { data, error, count } = await query;
 
@@ -477,11 +457,40 @@ export async function GET(req: Request) {
     );
   }
 
+  let documentsWithJobStatus = (data ?? []).map((doc) => ({
+    ...doc,
+    file_job_status: null as string | null,
+  }));
+
+  const documentIds = documentsWithJobStatus
+    .map((doc) => doc.id)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+
+  if (documentIds.length > 0) {
+    const { data: fileJobs, error: fileJobError } = await admin
+      .from("file_job")
+      .select("id, status")
+      .in("id", documentIds);
+
+    if (fileJobError) {
+      console.error("Failed to fetch file_job statuses:", fileJobError);
+    } else {
+      const statusById = new Map(
+        (fileJobs ?? []).map((row) => [row.id, row.status ?? null])
+      );
+
+      documentsWithJobStatus = documentsWithJobStatus.map((doc) => ({
+        ...doc,
+        file_job_status: statusById.get(doc.id) ?? null,
+      }));
+    }
+  }
+
   return NextResponse.json({
-    documents: data,
+    documents: documentsWithJobStatus,
     pagination: {
-      page,
-      limit,
+      page: fetchAll ? 1 : page,
+      limit: fetchAll ? data?.length ?? 0 : limit,
       total: count,
     },
   });

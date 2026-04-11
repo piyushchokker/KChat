@@ -1,20 +1,19 @@
 import { createAdminClient, createServerClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
-import RegistrarDashboardClient from "./registrar-dashboard-client";
 
-export default async function RegistrarDashboard() {
+export default async function AdminDashboardPage() {
   const supabase = await createServerClient();
   const {
     data: { user: authUser },
   } = await supabase.auth.getUser();
 
   if (!authUser) {
-    redirect("/registrar/login?error=unauthorized");
+    redirect("/admin/login?error=unauthorized");
   }
 
   const normalizedEmail = (authUser.email ?? "").trim().toLowerCase();
-  const admin = createAdminClient();
 
+  const admin = createAdminClient();
   const { data: byAuthId } = await admin
     .from("users")
     .select("id, auth_id, role, is_allowed")
@@ -23,7 +22,7 @@ export default async function RegistrarDashboard() {
 
   let appUser = byAuthId;
 
-  // Recover auth_id drift for existing approved registrar accounts.
+  // If auth_id drifted (e.g., account recreated), recover via trusted email match.
   if (!appUser && normalizedEmail) {
     const { data: byEmail } = await admin
       .from("users")
@@ -35,25 +34,20 @@ export default async function RegistrarDashboard() {
       appUser = byEmail;
 
       if (byEmail.auth_id !== authUser.id) {
-        await admin.from("users").update({ auth_id: authUser.id }).eq("id", byEmail.id);
+        await admin
+          .from("users")
+          .update({ auth_id: authUser.id })
+          .eq("id", byEmail.id);
       }
     }
   }
 
-  const isAuthorizedRegistrar =
-    appUser?.role === "registrar" && appUser.is_allowed !== false;
+  const isAuthorizedAdmin =
+    appUser?.role === "admin" && appUser.is_allowed !== false;
 
-  if (!isAuthorizedRegistrar) {
-    redirect("/registrar/login?error=unauthorized");
+  if (!isAuthorizedAdmin) {
+    redirect("/admin/login?error=unauthorized");
   }
 
-  return (
-    <RegistrarDashboardClient
-      user={{
-        name: authUser.user_metadata?.name || "Registrar",
-        email: authUser.email ?? normalizedEmail,
-        imageUrl: authUser.user_metadata?.imageUrl || undefined,
-      }}
-    />
-  );
+  return <main className="min-h-screen" />;
 }

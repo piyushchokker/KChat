@@ -1,17 +1,53 @@
 "use client";
 
 import { createBrowserClient } from "@/lib/supabase";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+function waitForNextPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+}
 
 export default function HomeClient() {
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash) return;
+
+    const params = new URLSearchParams(hash.replace(/^#/, ""));
+    const type = params.get("type");
+    const accessToken = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
+
+    if (type === "recovery" && accessToken && refreshToken) {
+      window.location.replace(`/admin/login/reset-password${hash}`);
+    }
+  }, []);
+
   const handleMicrosoftLogin = async () => {
+    if (loading) return;
+
+    setLoading(true);
+
     const supabase = createBrowserClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "azure",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        scopes: "openid email profile User.Read",
-      },
-    });
+
+    try {
+      // Ensure the loading animation is painted before navigation starts.
+      await waitForNextPaint();
+
+      await supabase.auth.signInWithOAuth({
+        provider: "azure",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          scopes: "openid email profile User.Read",
+        },
+      });
+    } catch {
+      setLoading(false);
+    }
   };
 
   return (
@@ -34,27 +70,45 @@ export default function HomeClient() {
         <div className="mt-8 flex flex-col gap-3">
           <button
             onClick={handleMicrosoftLogin}
+            disabled={loading}
+            aria-busy={loading}
             className="flex w-full items-center justify-center gap-3 rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1a1a1a] cursor-pointer transition-colors"
           >
-            <svg className="h-5 w-5" viewBox="0 0 21 21" fill="none">
-              <rect x="1" y="1" width="9" height="9" fill="#F25022" />
-              <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-              <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-              <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
-            </svg>
-            Continue with Microsoft
+            {loading ? (
+              <>
+                <span
+                  className="h-5 w-5 rounded-full border-2 border-white/35 border-t-white animate-spin"
+                  aria-hidden
+                />
+                Continuing with Microsoft…
+              </>
+            ) : (
+              <>
+                <svg className="h-5 w-5" viewBox="0 0 21 21" fill="none">
+                  <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+                  <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+                  <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+                  <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+                </svg>
+                Continue with Microsoft
+              </>
+            )}
           </button>
         </div>
 
         {/* Role links */}
         <div className="mt-6 flex justify-center gap-4 text-xs text-gray-400">
-          <a href="/student/login" className="hover:text-blue-600 hover:underline">
+          <Link href="/student/login" className="hover:text-blue-600 hover:underline">
             Student Login
-          </a>
+          </Link>
           <span>|</span>
-          <a href="/registrar/login" className="hover:text-blue-600 hover:underline">
+          <Link href="/registrar/login" className="hover:text-blue-600 hover:underline">
             Registrar Login
-          </a>
+          </Link>
+          <span>|</span>
+          <Link href="/admin/login" className="hover:text-blue-600 hover:underline">
+            Admin
+          </Link>
         </div>
       </div>
     </div>

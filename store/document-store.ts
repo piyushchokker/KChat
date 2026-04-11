@@ -32,7 +32,7 @@ const useDocumentStore = create<DocumentStoreState>((set, get) => ({
     if (get().isUploading) return;
     const next = get().uploadQueue[0];
     if (!next) return;
-    set((state) => ({ isUploading: true }));
+    set({ isUploading: true });
     const fileStatus: FileProcessingStatus = {
       id: `file-${Date.now()}`,
       fileName: next.file.name,

@@ -41,6 +41,9 @@ export async function getDocuments(filters?: {
   visibility?: string;
   status?: string;
   year?: string;
+  q?: string;
+  mine?: boolean;
+  all?: boolean;
   page?: number;
   limit?: number;
 }): Promise<{ documents: UploadedDocument[]; pagination: { page: number; limit: number; total: number | null } }> {
@@ -51,6 +54,9 @@ export async function getDocuments(filters?: {
   if (filters?.visibility) params.set("visibility", filters.visibility);
   if (filters?.status) params.set("status", filters.status);
   if (filters?.year) params.set("year", filters.year);
+  if (filters?.q) params.set("q", filters.q);
+  if (filters?.mine !== undefined) params.set("mine", String(filters.mine));
+  if (filters?.all !== undefined) params.set("all", String(filters.all));
   if (filters?.page) params.set("page", String(filters.page));
   if (filters?.limit) params.set("limit", String(filters.limit));
 

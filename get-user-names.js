@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 
-const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config({ path: '.env.local' });
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
-
 async function main() {
+  const [{ createClient }, dotenv] = await Promise.all([
+    import("@supabase/supabase-js"),
+    import("dotenv"),
+  ]);
+
+  dotenv.config({ path: ".env.local" });
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+
   const { data, error } = await supabase.from('users').select('name');
   if (error) {
     console.error('Error fetching user names:', error.message);

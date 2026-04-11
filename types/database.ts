@@ -60,6 +60,8 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          ret_session_id: string | null
+          roll_number: string | null
           title: string
           updated_at: string
           user_id: string
@@ -68,6 +70,8 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          ret_session_id?: string | null
+          roll_number?: string | null
           title?: string
           updated_at?: string
           user_id: string
@@ -76,6 +80,8 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          ret_session_id?: string | null
+          roll_number?: string | null
           title?: string
           updated_at?: string
           user_id?: string

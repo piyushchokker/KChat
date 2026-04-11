@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase-server";
+import { createAdminClient, createServerClient } from "@/lib/supabase-server";
 
 interface RouteContext {
   params: Promise<{ sessionId: string }>;
@@ -45,6 +45,7 @@ function getSessionBaseUrl(): string | null {
  */
 export async function GET(_req: Request, context: RouteContext) {
   const supabase = await createServerClient();
+  const admin = createAdminClient();
   const {
     data: { user: authUser },
   } = await supabase.auth.getUser();
@@ -58,6 +59,27 @@ export async function GET(_req: Request, context: RouteContext) {
 
   if (!UUID_PATTERN.test(normalizedSessionId)) {
     return NextResponse.json({ error: "Invalid session id" }, { status: 400 });
+  }
+
+  const { data: user } = await admin
+    .from("users")
+    .select("id")
+    .eq("auth_id", authUser.id)
+    .maybeSingle();
+
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const { data: ownedConversation } = await admin
+    .from("conversations")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("ret_session_id", normalizedSessionId)
+    .maybeSingle();
+
+  if (!ownedConversation) {
+    return NextResponse.json({ sessionId: normalizedSessionId, messages: [] });
   }
 
   const sessionBaseUrl = getSessionBaseUrl();

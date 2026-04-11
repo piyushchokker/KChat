@@ -1,13 +1,11 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import Image from "next/image";
 import { createBrowserClient } from "@/lib/supabase";
-import { UNIVERSITY_NAME } from "@/utils/constants";
 
 export default function LoginForm() {
-  const router = useRouter();
   const pathname = usePathname();
 
   const role = pathname.startsWith("/registrar") ? "registrar" : "student";

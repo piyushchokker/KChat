@@ -20,12 +20,16 @@ export async function GET(_req: Request, context: RouteContext) {
 
   const { data: currentUser } = await admin
     .from("users")
-    .select("id, role")
+    .select("id, role, is_allowed")
     .eq("auth_id", authUser.id)
     .single();
 
   if (!currentUser) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  if (currentUser.is_allowed === false) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const isRegistrar = currentUser.role === "registrar";
@@ -66,11 +70,11 @@ export async function PATCH(req: Request, context: RouteContext) {
   // Verify registrar role
   const { data: user } = await admin
     .from("users")
-    .select("id, role")
+    .select("id, role, is_allowed")
     .eq("auth_id", authUser.id)
     .single();
 
-  if (!user || user.role !== "registrar") {
+  if (!user || user.role !== "registrar" || user.is_allowed === false) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -128,11 +132,11 @@ export async function DELETE(_req: Request, context: RouteContext) {
   // Verify registrar
   const { data: user } = await admin
     .from("users")
-    .select("id, role")
+    .select("id, role, is_allowed")
     .eq("auth_id", authUser.id)
     .single();
 
-  if (!user || user.role !== "registrar") {
+  if (!user || user.role !== "registrar" || user.is_allowed === false) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

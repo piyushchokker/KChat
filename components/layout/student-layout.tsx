@@ -20,12 +20,21 @@ export default function StudentLayout({
 }: StudentLayoutProps) {
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const handleSignOut = async () => {
-    const supabase = createBrowserClient();
-    await supabase.auth.signOut();
-    router.push("/");
+    if (isSigningOut) return;
+
+    setIsSigningOut(true);
+
+    try {
+      const supabase = createBrowserClient();
+      await supabase.auth.signOut();
+      router.push("/");
+    } catch {
+      setIsSigningOut(false);
+    }
   };
 
   // Close popup when clicking outside
@@ -58,6 +67,7 @@ export default function StudentLayout({
                 className="cursor-pointer rounded-full focus:outline-none focus:ring-2 focus:ring-white/50"
               >
                 {user?.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={user.imageUrl}
                     alt={firstName}
@@ -78,9 +88,21 @@ export default function StudentLayout({
                   )}
                   <button
                     onClick={handleSignOut}
+                    disabled={isSigningOut}
+                    aria-busy={isSigningOut}
                     className="w-full rounded-lg px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
                   >
-                    Sign Out
+                    {isSigningOut ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span
+                          className="h-4 w-4 rounded-full border-2 border-gray-300 border-t-gray-700 animate-spin"
+                          aria-hidden
+                        />
+                        Signing out...
+                      </span>
+                    ) : (
+                      "Sign Out"
+                    )}
                   </button>
                 </div>
               )}

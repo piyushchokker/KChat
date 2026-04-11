@@ -52,32 +52,78 @@ export default async function StudentChatSessionPage(
   try {
     const admin = createAdminClient();
 
-    const { data, error: syncError } = await admin
+    const { data: existingByAuth } = await admin
       .from("users")
-      .upsert(
-        {
-          auth_id: authUser.id,
-          email,
-          name,
-          role: "student",
-          roll_number: rollNumber,
-        },
-        { onConflict: "auth_id" }
-      )
-      .select("image_url, is_allowed")
-      .single();
+      .select("id, auth_id, role, is_allowed, image_url, roll_number")
+      .eq("auth_id", authUser.id)
+      .maybeSingle();
 
-    if (syncError) {
-      console.error("[Student Sync Error]", JSON.stringify(syncError, null, 2));
-    } else {
-      console.log("[Student Synced]", email);
+    let existingUser = existingByAuth;
+    if (!existingUser && email) {
+      const { data: existingByEmail } = await admin
+        .from("users")
+        .select("id, auth_id, role, is_allowed, image_url, roll_number")
+        .ilike("email", email)
+        .maybeSingle();
+      existingUser = existingByEmail;
     }
 
-    if (data?.is_allowed === false) {
+    if (existingUser?.is_allowed === false) {
       isBanned = true;
     }
 
-    imageUrl = data?.image_url ?? undefined;
+    const nextRollNumber =
+      existingUser?.role === "student"
+        ? rollNumber
+        : (existingUser?.roll_number ?? null);
+
+    const syncPayload = {
+      auth_id: authUser.id,
+      email,
+      name,
+      roll_number: nextRollNumber,
+    };
+
+    let syncedProfile:
+      | { image_url: string | null; is_allowed: boolean }
+      | null = null;
+
+    if (existingUser) {
+      const { data, error: syncError } = await admin
+        .from("users")
+        .update(syncPayload)
+        .eq("id", existingUser.id)
+        .select("image_url, is_allowed")
+        .single();
+
+      if (syncError) {
+        console.error("[Student Sync Error]", JSON.stringify(syncError, null, 2));
+      } else {
+        syncedProfile = data;
+      }
+    } else {
+      const { data, error: syncError } = await admin
+        .from("users")
+        .insert({
+          ...syncPayload,
+          role: "student",
+          is_allowed: true,
+        })
+        .select("image_url, is_allowed")
+        .single();
+
+      if (syncError) {
+        console.error("[Student Sync Error]", JSON.stringify(syncError, null, 2));
+      } else {
+        syncedProfile = data;
+      }
+    }
+
+    if (syncedProfile?.is_allowed === false) {
+      isBanned = true;
+    }
+
+    imageUrl = syncedProfile?.image_url ?? existingUser?.image_url ?? undefined;
 
     // If no image stored yet, try fetching from Microsoft Graph.
     if (!imageUrl) {

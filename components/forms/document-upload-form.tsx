@@ -34,7 +34,7 @@ export default function DocumentUploadForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
-    let uploadMetadata: DocumentMetadata = {
+    const uploadMetadata: DocumentMetadata = {
       ...metadata,
       title: metadata.title && metadata.title.trim() !== "" ? metadata.title : file.name,
       fileName: file.name,

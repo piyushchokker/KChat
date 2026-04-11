@@ -5,12 +5,25 @@ import { createBrowserClient } from "@/lib/supabase";
 import { useState } from "react";
 import Button from "@/components/common/button";
 
+function waitForNextPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+}
+
 
 export default function StudentLoginPage() {
   const [loading, setLoading] = useState(false);
+
   const handleMicrosoftLogin = async () => {
+    if (loading) return;
+
     setLoading(true);
+
     try {
+      // Ensure the loading animation is painted before navigation starts.
+      await waitForNextPaint();
+
       const supabase = createBrowserClient();
       await supabase.auth.signInWithOAuth({
         provider: "azure",
@@ -19,7 +32,7 @@ export default function StudentLoginPage() {
           scopes: "openid email profile",
         },
       });
-    } finally {
+    } catch {
       setLoading(false);
     }
   };
@@ -37,16 +50,29 @@ export default function StudentLoginPage() {
         </p>
         <Button
           onClick={handleMicrosoftLogin}
-          isLoading={loading}
+          disabled={loading}
+          aria-busy={loading}
           className="mt-8 flex w-full items-center justify-center gap-3 rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1a1a1a] cursor-pointer transition-colors"
         >
-          <svg className="h-5 w-5" viewBox="0 0 21 21" fill="none">
-            <rect x="1" y="1" width="9" height="9" fill="#F25022" />
-            <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-            <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-            <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
-          </svg>
-          Continue with Microsoft
+          {loading ? (
+            <>
+              <span
+                className="h-5 w-5 rounded-full border-2 border-white/35 border-t-white animate-spin"
+                aria-hidden
+              />
+              Continuing with Microsoft...
+            </>
+          ) : (
+            <>
+              <svg className="h-5 w-5" viewBox="0 0 21 21" fill="none">
+                <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+                <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+                <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+                <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+              </svg>
+              Continue with Microsoft
+            </>
+          )}
         </Button>
       </div>
     </div>

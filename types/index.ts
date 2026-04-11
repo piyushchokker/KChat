@@ -108,6 +108,7 @@ export interface UploadedDocument {
   // These fields are present in DB rows and used in frontend
   title?: string;
   file_name?: string;
+  file_job_status?: string | null;
 }
 
 export interface FileProcessingStatus {

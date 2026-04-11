@@ -58,6 +58,7 @@ export default function RegistrarLayout({
                 className="cursor-pointer rounded-full focus:outline-none focus:ring-2 focus:ring-white/50"
               >
                 {user?.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={user.imageUrl}
                     alt={firstName}

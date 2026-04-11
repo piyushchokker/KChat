@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import SelectDropdown from "@/components/common/select-dropdown";
 import InputField from "@/components/common/input-field";
 import DatePicker from "@/components/common/date-picker";
 import { SCHOOLS, DOCUMENT_TYPES } from "@/utils/constants";
-import type { DocumentMetadata, LibraryType } from "@/types";
+import type { DocumentMetadata } from "@/types";
 
 interface MetadataFieldsProps {
   metadata: DocumentMetadata;
@@ -16,11 +15,7 @@ export default function MetadataFields({
   metadata,
   onChange,
 }: MetadataFieldsProps) {
-  const [selectedSchool, setSelectedSchool] = useState(metadata.school ?? "");
-
-  useEffect(() => {
-    setSelectedSchool(metadata.school ?? "");
-  }, [metadata.school]);
+  const selectedSchool = metadata.school ?? "";
 
   const school = SCHOOLS.find((s) => s.id === selectedSchool);
   const courses = school?.courses ?? [];
@@ -62,7 +57,6 @@ export default function MetadataFields({
         value={selectedSchool}
         onChange={(e) => {
           const newSchoolId = e.target.value;
-          setSelectedSchool(newSchoolId);
           // If KRMU base docs selected, auto-select general and lock the course
           if (newSchoolId === "base") {
             update({ school: newSchoolId, course: "general" });

@@ -14,8 +14,10 @@ function getEmailDomain(email: string): string {
   return email.slice(at + 1).toLowerCase();
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
+  const { pathname } = request.nextUrl;
+  const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -44,49 +46,56 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (user?.email) {
-    const trustedDomains = parseCsvEnv(process.env.TRUSTED_EMAIL_DOMAINS);
+    // Admin area has its own server-side role checks; keep domain filtering for the rest.
+    if (!isAdminPath) {
+      const normalizedEmail = user.email.trim().toLowerCase();
+      const trustedDomains = parseCsvEnv(process.env.TRUSTED_EMAIL_DOMAINS);
 
-    if (trustedDomains.length === 0) {
-      if (request.nextUrl.pathname.startsWith("/api/")) {
-        return NextResponse.json(
-          { error: "Server misconfiguration: TRUSTED_EMAIL_DOMAINS is missing" },
-          { status: 500 }
-        );
+      if (trustedDomains.length === 0) {
+        if (request.nextUrl.pathname.startsWith("/api/")) {
+          return NextResponse.json(
+            { error: "Server misconfiguration: TRUSTED_EMAIL_DOMAINS is missing" },
+            { status: 500 }
+          );
+        }
+
+        const url = request.nextUrl.clone();
+        url.pathname = "/sign-in";
+        url.searchParams.set("error", "server_config_missing");
+        return NextResponse.redirect(url);
       }
 
-      const url = request.nextUrl.clone();
-      url.pathname = "/sign-in";
-      url.searchParams.set("error", "server_config_missing");
-      return NextResponse.redirect(url);
-    }
+      const emailDomain = getEmailDomain(normalizedEmail);
 
-    const emailDomain = getEmailDomain(user.email.toLowerCase());
+      if (!trustedDomains.includes(emailDomain)) {
+        // Clear the session cookie so stale sessions cannot bypass allowlist checks.
+        await supabase.auth.signOut();
 
-    if (!trustedDomains.includes(emailDomain)) {
-      // Clear the session cookie so stale sessions cannot bypass allowlist checks.
-      await supabase.auth.signOut();
+        if (request.nextUrl.pathname.startsWith("/api/")) {
+          return NextResponse.json(
+            { error: "Email domain is not allowed" },
+            { status: 403 }
+          );
+        }
 
-      if (request.nextUrl.pathname.startsWith("/api/")) {
-        return NextResponse.json(
-          { error: "Email domain is not allowed" },
-          { status: 403 }
-        );
+        const url = request.nextUrl.clone();
+        url.pathname = "/sign-in";
+        url.searchParams.set("error", "domain_not_allowed");
+        return NextResponse.redirect(url);
       }
-
-      const url = request.nextUrl.clone();
-      url.pathname = "/sign-in";
-      url.searchParams.set("error", "domain_not_allowed");
-      return NextResponse.redirect(url);
     }
   }
 
-  const { pathname } = request.nextUrl;
+  const isAdminProtectedRoute =
+    (pathname === "/admin" || pathname.startsWith("/admin/")) &&
+    !pathname.startsWith("/admin/login");
 
   // Protected routes — redirect to sign-in if not authenticated
   const isProtected =
     pathname.startsWith("/student/chat") ||
     pathname.startsWith("/student/dashboard") ||
     pathname.startsWith("/registrar/dashboard") ||
+    isAdminProtectedRoute ||
     pathname.startsWith("/api/auth/sync") ||
     pathname.startsWith("/api/user") ||
     pathname.startsWith("/api/chat") ||
@@ -98,7 +107,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const url = request.nextUrl.clone();
-    url.pathname = "/sign-in";
+    url.pathname = isAdminProtectedRoute ? "/admin/login" : "/sign-in";
     return NextResponse.redirect(url);
   }
 

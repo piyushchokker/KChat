@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Button from "@/components/common/button";
+import LoadingLinkButton from "@/components/common/loading-link-button";
 
 type StudentRecord = {
   id: string;
@@ -244,12 +244,13 @@ export default function StudentManagement() {
                 >
                   {student.is_allowed ? "Allowed" : "Blocked"}
                 </span>
-                <Link
+                <LoadingLinkButton
                   href={`/registrar/dashboard/students/${student.id}/chat-history`}
-                  className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-300 px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                  variant="secondary"
+                  className="h-9 border border-gray-300 px-3 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                 >
                   Open Student Chat History
-                </Link>
+                </LoadingLinkButton>
                 <Button
                   type="button"
                   variant="outline"

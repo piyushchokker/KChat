@@ -15,6 +15,7 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
   ({ onSend, disabled }, ref) => {
     const [value, setValue] = useState("");
     const inputRef = useRef<HTMLInputElement>(null);
+    const isSending = Boolean(disabled);
 
     useImperativeHandle(ref, () => ({
       focus: () => {
@@ -53,11 +54,19 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       <button
         type="submit"
         disabled={!value.trim() || disabled}
+        aria-busy={isSending || undefined}
         className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-800 text-white transition-colors hover:bg-blue-900 disabled:opacity-40"
       >
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-        </svg>
+        {isSending ? (
+          <span
+            className="h-4 w-4 rounded-full border-2 border-white/35 border-t-white animate-spin"
+            aria-hidden
+          />
+        ) : (
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg>
+        )}
       </button>
     </form>
   );

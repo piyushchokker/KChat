@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import Image from "next/image";
 import { createBrowserClient } from "@/lib/supabase";
+import Button from "@/components/common/button";
 
 export default function LoginForm() {
   const pathname = usePathname();
@@ -88,13 +89,13 @@ export default function LoginForm() {
                 required
               />
               {error && <div className="text-red-600 text-sm mt-2">{error}</div>}
-              <button
+              <Button
                 type="submit"
                 className="w-full rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1a1a1a] cursor-pointer transition-colors"
-                disabled={loading}
+                isLoading={loading}
               >
                 {loading ? "Logging in..." : "Login"}
-              </button>
+              </Button>
             </form>
 
             <div className="flex justify-center gap-4 text-xs text-gray-400 pt-2">

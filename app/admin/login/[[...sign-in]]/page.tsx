@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase";
+import Button from "@/components/common/button";
 
 type ProfileResponse = {
   role?: string;
@@ -208,25 +209,26 @@ export default function AdminLoginPage() {
           </div>
           {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
           {notice && <div className="mt-2 text-sm text-green-600">{notice}</div>}
-          <button
+          <Button
             type="submit"
             className="w-full rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#1a1a1a] cursor-pointer"
-            disabled={loading}
+            isLoading={loading}
           >
             {loading ? "Logging in..." : "Login"}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={handleSendResetLink}
             className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 cursor-pointer"
-            disabled={sendingReset || resetCooldownSec > 0}
+            isLoading={sendingReset}
+            disabled={resetCooldownSec > 0}
           >
             {sendingReset
               ? "Sending link..."
               : resetCooldownSec > 0
                 ? `Retry in ${resetCooldownSec}s`
                 : "Send reset password link"}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

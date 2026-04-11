@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { createBrowserClient } from "@/lib/supabase";
+import Button from "@/components/common/button";
 
 type ProfileResponse = {
   role?: string;
@@ -101,13 +102,13 @@ export default function RegistrarLoginPage() {
             />
           </div>
           {error && <div className="text-red-600 text-sm mt-2">{error}</div>}
-          <button
+          <Button
             type="submit"
             className="w-full rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1a1a1a] cursor-pointer transition-colors"
-            disabled={loading}
+            isLoading={loading}
           >
             {loading ? "Logging in..." : "Login"}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

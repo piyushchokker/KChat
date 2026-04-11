@@ -15,6 +15,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       variant = "primary",
       size = "md",
       isLoading = false,
+      "aria-busy": ariaBusy,
       className,
       children,
       disabled,
@@ -22,6 +23,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref
   ) => {
+    const resolvedBusy =
+      isLoading || ariaBusy === true || ariaBusy === "true";
+
     const variants = {
       primary:
         "bg-blue-800 text-white hover:bg-blue-900 focus:ring-blue-500/30 shadow-md",
@@ -42,6 +46,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         disabled={disabled || isLoading}
+        aria-busy={resolvedBusy || undefined}
         className={cn(
           "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-200 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60",
           variants[variant],

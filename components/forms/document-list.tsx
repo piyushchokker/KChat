@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { getDocuments, deleteDocument } from "@/services/document-service";
 import type { UploadedDocument } from "@/types";
 import Button from "@/components/common/button";
 import { DOCUMENT_TYPES, SCHOOLS } from "@/utils/constants";
+import LoadingLinkButton from "@/components/common/loading-link-button";
 
 interface DocumentListProps {
   limit?: number;
@@ -301,12 +301,13 @@ export default function DocumentList({
 
       {showSeeAllButton && (
         <div className="pt-1">
-          <Link
+          <LoadingLinkButton
             href="/registrar/dashboard/uploaded-documents"
-            className="inline-flex h-10 items-center justify-center rounded-lg border-2 border-blue-800 px-4 text-sm font-semibold text-blue-800 transition hover:bg-blue-50"
+            variant="outline"
+            className="h-10 border-2 border-blue-800 px-4 text-sm font-semibold text-blue-800 hover:bg-blue-50"
           >
             See All Uploaded Files
-          </Link>
+          </LoadingLinkButton>
         </div>
       )}
     </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase";
+import Button from "@/components/common/button";
 
 type ResetState = "initializing" | "ready" | "error" | "success";
 
@@ -158,13 +159,13 @@ export default function AdminResetPasswordPage() {
 
             {message && <div className="mt-2 text-sm text-red-600">{message}</div>}
 
-            <button
+            <Button
               type="submit"
               className="w-full rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#1a1a1a]"
-              disabled={saving}
+              isLoading={saving}
             >
               {saving ? "Updating..." : "Update Password"}
-            </button>
+            </Button>
           </form>
         )}
 

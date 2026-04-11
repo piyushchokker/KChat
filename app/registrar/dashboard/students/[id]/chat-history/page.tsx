@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { createAdminClient, createServerClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
 import RegistrarLayout from "@/components/layout/registrar-layout";
+import LoadingLinkButton from "@/components/common/loading-link-button";
 
 interface StudentChatHistoryPageProps {
   params: Promise<{ id: string }>;
@@ -137,12 +137,13 @@ export default async function StudentChatHistoryPage(
                 Showing only the last {MAX_VISIBLE_CHATS} chats
               </p>
             </div>
-            <Link
+            <LoadingLinkButton
               href="/registrar/dashboard/students"
-              className="inline-flex h-10 items-center justify-center rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              variant="secondary"
+              className="h-10 border border-gray-300 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
             >
               Back to Student Management
-            </Link>
+            </LoadingLinkButton>
           </div>
 
           {conversationRows.length === 0 ? (

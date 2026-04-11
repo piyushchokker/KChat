@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import RegistrarLayout from "@/components/layout/registrar-layout";
 import DocumentUploadForm from "@/components/forms/document-upload-form";
 import DocumentList from "@/components/forms/document-list";
 import useDocumentStore from "@/store/document-store";
+import LoadingLinkButton from "@/components/common/loading-link-button";
 
 interface RegistrarDashboardClientProps {
   user: {
@@ -23,12 +23,13 @@ export default function RegistrarDashboardClient({
     <RegistrarLayout user={user}>
       <div className="flex-1 p-6 sm:p-8">
         <div className="mx-auto mb-4 flex max-w-6xl justify-end">
-          <Link
+          <LoadingLinkButton
             href="/registrar/dashboard/students"
-            className="inline-flex h-10 items-center justify-center rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+            variant="secondary"
+            className="h-10 border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
           >
             Manage Students
-          </Link>
+          </LoadingLinkButton>
         </div>
         <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2">
           {/* Left panel – Upload */}

@@ -1,17 +1,29 @@
 "use client";
 
 import { createBrowserClient } from "@/lib/supabase";
+import { useState } from "react";
+import Button from "@/components/common/button";
 
 export default function SignInPage() {
+  const [loading, setLoading] = useState(false);
+
   const handleMicrosoftLogin = async () => {
+    if (loading) return;
+
+    setLoading(true);
+
     const supabase = createBrowserClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "azure",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        scopes: "openid email profile",
-      },
-    });
+    try {
+      await supabase.auth.signInWithOAuth({
+        provider: "azure",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          scopes: "openid email profile",
+        },
+      });
+    } catch {
+      setLoading(false);
+    }
   };
 
   return (
@@ -25,18 +37,21 @@ export default function SignInPage() {
         <p className="mt-2 text-sm text-gray-500">
           Use your university Microsoft account to continue
         </p>
-        <button
+        <Button
           onClick={handleMicrosoftLogin}
+          isLoading={loading}
           className="mt-8 flex w-full items-center justify-center gap-3 rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1a1a1a] cursor-pointer transition-colors"
         >
-          <svg className="h-5 w-5" viewBox="0 0 21 21" fill="none">
-            <rect x="1" y="1" width="9" height="9" fill="#F25022" />
-            <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-            <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-            <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
-          </svg>
-          Continue with Microsoft
-        </button>
+          {!loading && (
+            <svg className="h-5 w-5" viewBox="0 0 21 21" fill="none">
+              <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+              <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+              <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+              <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+            </svg>
+          )}
+          {loading ? "Continuing with Microsoft..." : "Continue with Microsoft"}
+        </Button>
       </div>
     </div>
   );

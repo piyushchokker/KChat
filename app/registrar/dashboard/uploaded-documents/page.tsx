@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { createAdminClient, createServerClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
 import RegistrarLayout from "@/components/layout/registrar-layout";
 import DocumentList from "@/components/forms/document-list";
+import LoadingLinkButton from "@/components/common/loading-link-button";
 
 export default async function UploadedDocumentsPage() {
   const supabase = await createServerClient();
@@ -65,12 +65,13 @@ export default async function UploadedDocumentsPage() {
                 Search, filter, and manage your uploaded files
               </p>
             </div>
-            <Link
+            <LoadingLinkButton
               href="/registrar/dashboard"
-              className="inline-flex h-10 items-center justify-center rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              variant="secondary"
+              className="h-10 border border-gray-300 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
             >
               Back to Dashboard
-            </Link>
+            </LoadingLinkButton>
           </div>
 
           <DocumentList

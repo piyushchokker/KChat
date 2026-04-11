@@ -3,6 +3,7 @@
 import { createBrowserClient } from "@/lib/supabase";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import Button from "@/components/common/button";
 
 function waitForNextPaint(): Promise<void> {
   return new Promise((resolve) => {
@@ -68,32 +69,21 @@ export default function HomeClient() {
 
         {/* Microsoft Sign In */}
         <div className="mt-8 flex flex-col gap-3">
-          <button
+          <Button
             onClick={handleMicrosoftLogin}
-            disabled={loading}
-            aria-busy={loading}
+            isLoading={loading}
             className="flex w-full items-center justify-center gap-3 rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1a1a1a] cursor-pointer transition-colors"
           >
-            {loading ? (
-              <>
-                <span
-                  className="h-5 w-5 rounded-full border-2 border-white/35 border-t-white animate-spin"
-                  aria-hidden
-                />
-                Continuing with Microsoft…
-              </>
-            ) : (
-              <>
-                <svg className="h-5 w-5" viewBox="0 0 21 21" fill="none">
-                  <rect x="1" y="1" width="9" height="9" fill="#F25022" />
-                  <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-                  <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-                  <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
-                </svg>
-                Continue with Microsoft
-              </>
+            {!loading && (
+              <svg className="h-5 w-5" viewBox="0 0 21 21" fill="none">
+                <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+                <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+                <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+                <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+              </svg>
             )}
-          </button>
+            {loading ? "Continuing with Microsoft..." : "Continue with Microsoft"}
+          </Button>
         </div>
 
         {/* Role links */}

@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { createAdminClient, createServerClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
 import RegistrarLayout from "@/components/layout/registrar-layout";
 import StudentManagement from "@/components/forms/student-management";
+import LoadingLinkButton from "@/components/common/loading-link-button";
 
 export default async function RegistrarStudentsPage() {
   const supabase = await createServerClient();
@@ -65,12 +65,13 @@ export default async function RegistrarStudentsPage() {
                 View and edit student records from the users table
               </p>
             </div>
-            <Link
+            <LoadingLinkButton
               href="/registrar/dashboard"
-              className="inline-flex h-10 items-center justify-center rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              variant="secondary"
+              className="h-10 border border-gray-300 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
             >
               Back to Dashboard
-            </Link>
+            </LoadingLinkButton>
           </div>
 
           <StudentManagement />

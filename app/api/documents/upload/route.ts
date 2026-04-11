@@ -457,7 +457,18 @@ export async function GET(req: Request) {
     );
   }
 
-  let documentsWithJobStatus = (data ?? []).map((doc) => ({
+  type DocumentRow = Record<string, unknown> & { id: string };
+  const rawDocuments = (data ?? []) as unknown[];
+
+  const documentRows: DocumentRow[] = rawDocuments.filter(
+    (doc): doc is DocumentRow =>
+      typeof doc === "object" &&
+      doc !== null &&
+      "id" in doc &&
+      typeof (doc as { id?: unknown }).id === "string"
+  );
+
+  let documentsWithJobStatus = documentRows.map((doc) => ({
     ...doc,
     file_job_status: null as string | null,
   }));

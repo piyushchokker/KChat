@@ -200,6 +200,24 @@ export type Database = {
           },
         ]
       }
+      file_job: {
+        Row: {
+          id: string
+          status: string
+          retries: number
+        }
+        Insert: {
+          id: string
+          status?: string
+          retries?: number
+        }
+        Update: {
+          id?: string
+          status?: string
+          retries?: number
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           confidence: number | null

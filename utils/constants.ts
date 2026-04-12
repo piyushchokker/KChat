@@ -53,18 +53,7 @@ export const SCHOOLS: School[] = [
   {
     id: "base",
     name: "KRMU (General University Documents)",
-    courses: [
-      { id: "general", name: "General University Circulars", level: "General" },
-      { id: "admissions", name: "Admissions", level: "General" },
-      { id: "examinations", name: "Examinations", level: "General" },
-      { id: "scholarships", name: "Scholarships", level: "General" },
-      { id: "hostel", name: "Hostel & Accommodation", level: "General" },
-      { id: "library", name: "Library", level: "General" },
-      { id: "sports", name: "Sports & Recreation", level: "General" },
-      { id: "campus_facilities", name: "Campus Facilities", level: "General" },
-      { id: "rules_regulations", name: "Rules & Regulations", level: "General" },
-      { id: "other", name: "Other", level: "General" },
-    ],
+    courses: [],
   },
   {
     id: "soet",

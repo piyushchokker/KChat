@@ -200,6 +200,95 @@ export type Database = {
           },
         ]
       }
+      document_metadata_types: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      document_metadata_schools: {
+        Row: {
+          course_key: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          course_key: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          course_key?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      document_metadata_courses: {
+        Row: {
+          academic_level: string
+          course_code: string
+          created_at: string
+          id: string
+          max_semesters: number | null
+          name: string
+          school_id: string
+          updated_at: string
+        }
+        Insert: {
+          academic_level: string
+          course_code: string
+          created_at?: string
+          id?: string
+          max_semesters?: number | null
+          name: string
+          school_id: string
+          updated_at?: string
+        }
+        Update: {
+          academic_level?: string
+          course_code?: string
+          created_at?: string
+          id?: string
+          max_semesters?: number | null
+          name?: string
+          school_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_metadata_courses_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "document_metadata_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       file_job: {
         Row: {
           id: string

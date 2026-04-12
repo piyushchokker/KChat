@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient, createAdminClient } from "@/lib/supabase-server";
+import { getFrontendMetadataOptions } from "@/lib/document-metadata-options";
+import type { FrontendMetadataOptions } from "@/types/document-metadata-options";
 import { z } from "zod";
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
@@ -39,22 +41,10 @@ const MIME_BY_EXTENSION: Record<string, string[]> = {
   ".xml": ["application/xml", "text/xml", "text/plain"],
 };
 
-const DOCUMENT_TYPE_VALUES = [
-  "policy",
-  "procedure",
-  "notice",
-  "circular",
-  "guideline",
-  "form",
-  "directions",
-  "professor_details",
-  "other",
-] as const;
-
 const metadataSchema = z
   .object({
     title: z.string().trim().min(3).max(200),
-    documentType: z.enum(DOCUMENT_TYPE_VALUES),
+    documentType: z.string().trim().min(1).max(80),
     issuingAuthority: z.string().trim().min(2).max(120),
     effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     effectiveTill: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -67,6 +57,76 @@ const metadataSchema = z
     message: "effectiveTill must be greater than or equal to effectiveFrom",
     path: ["effectiveTill"],
   });
+
+type ParsedUploadMetadata = z.infer<typeof metadataSchema>;
+
+function validateMetadataSelections(
+  metadata: ParsedUploadMetadata,
+  options: FrontendMetadataOptions
+): string | null {
+  if (options.documentTypes.length === 0 && options.schools.length === 0) {
+    return null;
+  }
+
+  const supportedDocumentTypes = new Set(
+    options.documentTypes.map((docType) => docType.value)
+  );
+
+  if (
+    supportedDocumentTypes.size > 0 &&
+    !supportedDocumentTypes.has(metadata.documentType)
+  ) {
+    return "Invalid document type selected.";
+  }
+
+  const schoolId = metadata.school?.trim() ?? "";
+  const courseId = metadata.course?.trim() ?? "";
+  const semesterValue = metadata.semester?.trim() ?? "";
+
+  if (!schoolId) {
+    if (courseId || semesterValue) {
+      return "Select a school before choosing course or semester.";
+    }
+
+    return null;
+  }
+
+  const selectedSchool = options.schools.find((school) => school.id === schoolId);
+  if (!selectedSchool) {
+    return "Invalid school selected.";
+  }
+
+  if (!courseId) {
+    if (semesterValue) {
+      return "Semester cannot be set without selecting a course.";
+    }
+
+    return null;
+  }
+
+  const selectedCourse = selectedSchool.courses.find((course) => course.id === courseId);
+  if (!selectedCourse) {
+    return "Invalid course selected for the chosen school.";
+  }
+
+  if (!semesterValue) {
+    return null;
+  }
+
+  const semesterAsNumber = Number.parseInt(semesterValue, 10);
+  if (!Number.isFinite(semesterAsNumber) || semesterAsNumber < 1) {
+    return "Semester must be a positive number.";
+  }
+
+  if (
+    selectedCourse.maxSemesters > 0 &&
+    semesterAsNumber > selectedCourse.maxSemesters
+  ) {
+    return `Semester cannot exceed ${selectedCourse.maxSemesters} for the selected course.`;
+  }
+
+  return null;
+}
 
 function getExtension(fileName: string): string {
   const normalized = fileName.trim().toLowerCase();
@@ -229,6 +289,16 @@ export async function POST(req: Request) {
     }
 
     const metadata = parsedMetadata.data;
+    const metadataOptions = await getFrontendMetadataOptions(admin);
+    const metadataSelectionError = validateMetadataSelections(
+      metadata,
+      metadataOptions
+    );
+
+    if (metadataSelectionError) {
+      return NextResponse.json({ error: metadataSelectionError }, { status: 400 });
+    }
+
     const extension = getExtension(file.name);
     if (!ALLOWED_EXTENSIONS.has(extension)) {
       return NextResponse.json(
@@ -396,12 +466,13 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const isRegistrar = currentUser.role === "registrar";
+  const isPrivilegedUser =
+    currentUser.role === "registrar" || currentUser.role === "admin";
   const studentSelect =
     "id, title, file_name, file_url, file_size, document_type, school, course, semester, effective_from, effective_till, keywords, issuing_authority, created_at, updated_at";
   const registrarSelect =
     `${studentSelect}, storage_path, uploaded_by, uploaded_by_user:users!documents_uploaded_by_fkey(name, email)`;
-  const selectColumns = isRegistrar ? registrarSelect : studentSelect;
+  const selectColumns = isPrivilegedUser ? registrarSelect : studentSelect;
 
   let query = admin
     .from("documents")
@@ -422,7 +493,7 @@ export async function GET(req: Request) {
   if (visibility) query = query.eq("visibility", visibility);
 
   const mineOnly = searchParams.get("mine") === "true";
-  if (mineOnly && isRegistrar) {
+  if (mineOnly && isPrivilegedUser) {
     query = query.eq("uploaded_by", currentUser.id);
   }
 

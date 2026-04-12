@@ -57,16 +57,7 @@ export interface DocumentSource {
 }
 
 // ---------- Documents ----------
-export type DocumentType =
-  | "policy"
-  | "procedure"
-  | "notice"
-  | "circular"
-  | "guideline"
-  | "form"
-  | "directions"
-  | "professor_details"
-  | "other";
+export type DocumentType = string;
 
 export type LibraryType = "general" | "course-specific";
 
@@ -130,4 +121,5 @@ export interface Course {
   id: string;
   name: string;
   level: AcademicLevel;
+  maxSemesters?: number | null;
 }

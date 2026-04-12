@@ -3,43 +3,36 @@
 import SelectDropdown from "@/components/common/select-dropdown";
 import InputField from "@/components/common/input-field";
 import DatePicker from "@/components/common/date-picker";
-import { SCHOOLS, DOCUMENT_TYPES } from "@/utils/constants";
+import { resolveMaxSemesters } from "@/lib/document-metadata-defaults";
+import type { FrontendMetadataOptions } from "@/types/document-metadata-options";
 import type { DocumentMetadata } from "@/types";
 
 interface MetadataFieldsProps {
   metadata: DocumentMetadata;
   onChange: (metadata: DocumentMetadata) => void;
+  options: FrontendMetadataOptions;
 }
 
 export default function MetadataFields({
   metadata,
   onChange,
+  options,
 }: MetadataFieldsProps) {
   const selectedSchool = metadata.school ?? "";
-
-  const school = SCHOOLS.find((s) => s.id === selectedSchool);
+  const school = options.schools.find((item) => item.id === selectedSchool);
   const courses = school?.courses ?? [];
-
-
-  // Helper: Get max semesters for a course (default 8 for UG, 4 for PG, 2 for Diploma, 10 for Integrated, 6 for PhD)
-  function getMaxSemestersForCourse(courseId: string): number {
-    const allCourses = SCHOOLS.flatMap(s => s.courses);
-    const course = allCourses.find(c => c.id === courseId);
-    if (!course) return 0;
-    switch (course.level) {
-      case "UG": return 8;
-      case "PG": return 4;
-      case "Diploma": return 2;
-      case "Integrated": return 10;
-      case "PhD": return 6;
-      default: return 0;
-    }
-  }
+  const selectedCourse = courses.find((course) => course.id === metadata.course);
+  const maxSemesters = selectedCourse
+    ? resolveMaxSemesters(selectedCourse.level, selectedCourse.maxSemesters)
+    : 0;
 
   const semesterOptions = (() => {
-    if (!selectedSchool || selectedSchool === "base" || !metadata.course) return [];
-    const max = getMaxSemestersForCourse(metadata.course);
-    return Array.from({ length: max }, (_, i) => ({ value: String(i + 1), label: `${i + 1}${["st","nd","rd"][i]||"th"} Semester` }));
+    if (!selectedSchool || !metadata.course || maxSemesters <= 0) return [];
+
+    return Array.from({ length: maxSemesters }, (_, i) => ({
+      value: String(i + 1),
+      label: `${i + 1}${["st", "nd", "rd"][i] || "th"} Semester`,
+    }));
   })();
 
   const update = (partial: Partial<DocumentMetadata>) => {
@@ -52,17 +45,21 @@ export default function MetadataFields({
       <SelectDropdown
         label="Select School"
         required
-        options={SCHOOLS.map((s) => ({ value: s.id, label: s.name }))}
+        options={options.schools.map((item) => ({
+          value: item.id,
+          label: item.name,
+        }))}
         placeholder="-- Select School --"
         value={selectedSchool}
         onChange={(e) => {
           const newSchoolId = e.target.value;
-          // If KRMU base docs selected, auto-select general and lock the course
-          if (newSchoolId === "base") {
-            update({ school: newSchoolId, course: "general" });
-          } else {
-            update({ school: newSchoolId, course: "" });
-          }
+          const nextSchool = options.schools.find((item) => item.id === newSchoolId);
+          const autoSelectedCourse =
+            nextSchool && nextSchool.courses.length === 1
+              ? nextSchool.courses[0].id
+              : null;
+
+          update({ school: newSchoolId || null, course: autoSelectedCourse, semester: null });
         }}
         icon={
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -74,18 +71,18 @@ export default function MetadataFields({
       {/* Course */}
       <SelectDropdown
         label="Select Course"
-        required
+        required={courses.length > 0}
         options={courses.map((c) => ({ value: c.id, label: c.name }))}
         placeholder={
-          selectedSchool === "base"
-            ? "-- General University Circulars --"
-            : selectedSchool
-            ? "-- Select Course --"
-            : "-- Select School First --"
+          !selectedSchool
+            ? "-- Select School First --"
+            : courses.length > 0
+              ? "-- Select Course --"
+              : "-- No Courses Available --"
         }
         value={metadata.course ?? ""}
-        onChange={(e) => update({ course: e.target.value })}
-        disabled={!selectedSchool || selectedSchool === "base"}
+        onChange={(e) => update({ course: e.target.value || null, semester: null })}
+        disabled={!selectedSchool || courses.length === 0}
         icon={
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -111,12 +108,10 @@ export default function MetadataFields({
       <SelectDropdown
         label="Document Type"
         required
-        options={DOCUMENT_TYPES}
+        options={options.documentTypes}
         placeholder="-- Select Type --"
         value={metadata.documentType}
-        onChange={(e) =>
-          update({ documentType: e.target.value as DocumentMetadata["documentType"] })
-        }
+        onChange={(e) => update({ documentType: e.target.value })}
         icon={
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -125,7 +120,7 @@ export default function MetadataFields({
       />
 
       {/* Semester (course-specific only) */}
-      {selectedSchool && selectedSchool !== "base" && semesterOptions.length > 0 && (
+      {selectedSchool && semesterOptions.length > 0 && (
         <SelectDropdown
           label="Semester"
           required

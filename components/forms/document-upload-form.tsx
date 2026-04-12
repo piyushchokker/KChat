@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import MetadataFields from "./metadata-fields";
 import Button from "@/components/common/button";
+import { resolveMaxSemesters } from "@/lib/document-metadata-defaults";
+import { useDocumentMetadataOptions } from "@/lib/use-document-metadata-options";
+import type { FrontendMetadataOptions } from "@/types/document-metadata-options";
 import useDocumentStore from "@/store/document-store";
 import type { DocumentMetadata } from "@/types";
 
@@ -20,11 +23,71 @@ const DEFAULT_METADATA: DocumentMetadata = {
   keywords: [],
 };
 
+function sanitizeMetadataForOptions(
+  metadata: DocumentMetadata,
+  options: FrontendMetadataOptions
+): DocumentMetadata {
+  const next: DocumentMetadata = { ...metadata };
+
+  const documentTypeValues = options.documentTypes.map((item) => item.value);
+  if (documentTypeValues.length > 0 && !documentTypeValues.includes(next.documentType)) {
+    next.documentType = documentTypeValues[0];
+  }
+
+  const selectedSchool = next.school
+    ? options.schools.find((school) => school.id === next.school)
+    : null;
+
+  if (next.school && !selectedSchool) {
+    next.school = null;
+    next.course = null;
+    next.semester = null;
+    return next;
+  }
+
+  const selectedCourse = next.course
+    ? selectedSchool?.courses.find((course) => course.id === next.course)
+    : null;
+
+  if (next.course && !selectedCourse) {
+    next.course = null;
+    next.semester = null;
+  }
+
+  if (next.semester) {
+    const activeCourse = next.course
+      ? selectedSchool?.courses.find((course) => course.id === next.course)
+      : null;
+
+    if (!activeCourse) {
+      next.semester = null;
+    } else {
+      const maxSemesters = resolveMaxSemesters(
+        activeCourse.level,
+        activeCourse.maxSemesters
+      );
+      const semesterAsNumber = Number.parseInt(next.semester, 10);
+
+      if (
+        !Number.isFinite(semesterAsNumber) ||
+        semesterAsNumber < 1 ||
+        (maxSemesters > 0 && semesterAsNumber > maxSemesters)
+      ) {
+        next.semester = null;
+      }
+    }
+  }
+
+  return next;
+}
+
 export default function DocumentUploadForm() {
   const { upload, isUploading } = useDocumentStore();
+  const { options: metadataOptions } = useDocumentMetadataOptions();
   const [file, setFile] = useState<File | null>(null);
   const [metadata, setMetadata] = useState<DocumentMetadata>(DEFAULT_METADATA);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sanitizedMetadata = sanitizeMetadataForOptions(metadata, metadataOptions);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -35,8 +98,11 @@ export default function DocumentUploadForm() {
     e.preventDefault();
     if (!file) return;
     const uploadMetadata: DocumentMetadata = {
-      ...metadata,
-      title: metadata.title && metadata.title.trim() !== "" ? metadata.title : file.name,
+      ...sanitizedMetadata,
+      title:
+        sanitizedMetadata.title && sanitizedMetadata.title.trim() !== ""
+          ? sanitizedMetadata.title
+          : file.name,
       fileName: file.name,
       fileSize: file.size,
     };
@@ -87,13 +153,17 @@ export default function DocumentUploadForm() {
       </div>
 
       {/* Metadata */}
-      <MetadataFields metadata={metadata} onChange={setMetadata} />
+      <MetadataFields
+        metadata={sanitizedMetadata}
+        onChange={setMetadata}
+        options={metadataOptions}
+      />
 
       {/* Submit */}
       <Button
         type="submit"
         isLoading={isUploading}
-        disabled={!file || !metadata.title}
+        disabled={!file || !sanitizedMetadata.title}
         className="w-full"
         size="lg"
       >

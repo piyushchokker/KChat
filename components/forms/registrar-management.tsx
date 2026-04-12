@@ -2,42 +2,35 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Button from "@/components/common/button";
-import LoadingLinkButton from "@/components/common/loading-link-button";
 
-type StudentRecord = {
+type RegistrarRecord = {
   id: string;
   auth_id: string;
   email: string;
   name: string;
   role: string;
-  roll_number: string | null;
   department: string | null;
   designation: string | null;
-  program: string | null;
   created_at: string;
   updated_at: string;
   is_allowed: boolean;
 };
 
-type StudentEditForm = {
+type RegistrarEditForm = {
   name: string;
   email: string;
-  roll_number: string;
   department: string;
   designation: string;
-  program: string;
   is_allowed: boolean;
 };
 
-function toEditForm(student: StudentRecord): StudentEditForm {
+function toEditForm(registrar: RegistrarRecord): RegistrarEditForm {
   return {
-    name: student.name ?? "",
-    email: student.email ?? "",
-    roll_number: student.roll_number ?? "",
-    department: student.department ?? "",
-    designation: student.designation ?? "",
-    program: student.program ?? "",
-    is_allowed: Boolean(student.is_allowed),
+    name: registrar.name ?? "",
+    email: registrar.email ?? "",
+    department: registrar.department ?? "",
+    designation: registrar.designation ?? "",
+    is_allowed: Boolean(registrar.is_allowed),
   };
 }
 
@@ -48,18 +41,8 @@ function getErrorMessage(err: unknown): string {
   return "Something went wrong";
 }
 
-interface StudentManagementProps {
-  apiBasePath?: string;
-  chatHistoryBasePath?: string;
-  showChatHistoryButton?: boolean;
-}
-
-export default function StudentManagement({
-  apiBasePath = "/api/registrar/students",
-  chatHistoryBasePath = "/registrar/dashboard/students",
-  showChatHistoryButton = true,
-}: StudentManagementProps) {
-  const [students, setStudents] = useState<StudentRecord[]>([]);
+export default function RegistrarManagement() {
+  const [registrars, setRegistrars] = useState<RegistrarRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -67,71 +50,66 @@ export default function StudentManagement({
   const [success, setSuccess] = useState("");
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<StudentEditForm | null>(null);
+  const [form, setForm] = useState<RegistrarEditForm | null>(null);
 
-  const loadStudents = useCallback(
-    async (withRefreshState = false) => {
-      if (withRefreshState) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
+  const loadRegistrars = useCallback(async (withRefreshState = false) => {
+    if (withRefreshState) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    setError("");
+
+    try {
+      const res = await fetch("/api/admin/registrars", { cache: "no-store" });
+      if (!res.ok) {
+        const payload = (await res
+          .json()
+          .catch(() => ({ error: "Failed to load registrars" }))) as {
+          error?: string;
+        };
+        throw new Error(payload.error || "Failed to load registrars");
       }
 
-      setError("");
-
-      try {
-        const res = await fetch(apiBasePath, { cache: "no-store" });
-        if (!res.ok) {
-          const payload = (await res
-            .json()
-            .catch(() => ({ error: "Failed to load students" }))) as {
-            error?: string;
-          };
-          throw new Error(payload.error || "Failed to load students");
-        }
-
-        const payload = (await res.json()) as { students?: StudentRecord[] };
-        setStudents(payload.students ?? []);
-      } catch (err: unknown) {
-        setError(getErrorMessage(err));
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [apiBasePath]
-  );
+      const payload = (await res.json()) as { registrars?: RegistrarRecord[] };
+      setRegistrars(payload.registrars ?? []);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    void loadStudents();
-  }, [loadStudents]);
+    void loadRegistrars();
+  }, [loadRegistrars]);
 
-  const filteredStudents = useMemo(() => {
+  const filteredRegistrars = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return students;
+    if (!term) return registrars;
 
-    return students.filter((student) => {
+    return registrars.filter((registrar) => {
       const haystack = [
-        student.name,
-        student.email,
-        student.roll_number ?? "",
-        student.program ?? "",
-        student.department ?? "",
-        student.designation ?? "",
-        student.auth_id,
+        registrar.name,
+        registrar.email,
+        registrar.department ?? "",
+        registrar.designation ?? "",
+        registrar.auth_id,
       ]
         .join(" ")
         .toLowerCase();
 
       return haystack.includes(term);
     });
-  }, [search, students]);
+  }, [search, registrars]);
 
-  const startEdit = (student: StudentRecord) => {
+  const startEdit = (registrar: RegistrarRecord) => {
     setError("");
     setSuccess("");
-    setEditingId(student.id);
-    setForm(toEditForm(student));
+    setEditingId(registrar.id);
+    setForm(toEditForm(registrar));
   };
 
   const cancelEdit = () => {
@@ -162,15 +140,13 @@ export default function StudentManagement({
     const payload = {
       name: normalizedName,
       email: normalizedEmail,
-      roll_number: form.roll_number.trim() || null,
       department: form.department.trim() || null,
       designation: form.designation.trim() || null,
-      program: form.program.trim() || null,
       is_allowed: form.is_allowed,
     };
 
     try {
-      const res = await fetch(`${apiBasePath}/${editingId}`, {
+      const res = await fetch(`/api/admin/registrars/${editingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -179,18 +155,18 @@ export default function StudentManagement({
       if (!res.ok) {
         const errPayload = (await res
           .json()
-          .catch(() => ({ error: "Failed to update student" }))) as {
+          .catch(() => ({ error: "Failed to update registrar" }))) as {
           error?: string;
         };
-        throw new Error(errPayload.error || "Failed to update student");
+        throw new Error(errPayload.error || "Failed to update registrar");
       }
 
-      const updated = (await res.json()) as StudentRecord;
+      const updated = (await res.json()) as RegistrarRecord;
 
-      setStudents((prev) =>
-        prev.map((student) => (student.id === updated.id ? updated : student))
+      setRegistrars((prev) =>
+        prev.map((registrar) => (registrar.id === updated.id ? updated : registrar))
       );
-      setSuccess("Student updated successfully.");
+      setSuccess("Registrar updated successfully.");
       setEditingId(null);
       setForm(null);
     } catch (err: unknown) {
@@ -201,7 +177,7 @@ export default function StudentManagement({
   };
 
   if (loading) {
-    return <div className="text-sm text-gray-500">Loading students...</div>;
+    return <div className="text-sm text-gray-500">Loading registrars...</div>;
   }
 
   return (
@@ -212,7 +188,7 @@ export default function StudentManagement({
             type="text"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by name, email, roll number, program or department"
+            placeholder="Search by name, email, department or designation"
             className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm text-gray-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
           <Button
@@ -220,7 +196,7 @@ export default function StudentManagement({
             variant="outline"
             size="sm"
             isLoading={refreshing}
-            onClick={() => loadStudents(true)}
+            onClick={() => loadRegistrars(true)}
             className="h-10"
           >
             Refresh
@@ -231,53 +207,44 @@ export default function StudentManagement({
       {error && <div className="text-sm text-red-600">{error}</div>}
       {success && <div className="text-sm text-green-600">{success}</div>}
 
-      {filteredStudents.length === 0 ? (
+      {filteredRegistrars.length === 0 ? (
         <div className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500">
-          No students found.
+          No registrars found.
         </div>
       ) : (
-        filteredStudents.map((student) => (
-          <div key={student.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        filteredRegistrars.map((registrar) => (
+          <div key={registrar.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 className="text-base font-semibold text-gray-900">{student.name}</h3>
-                <p className="text-sm text-gray-600">{student.email}</p>
+                <h3 className="text-base font-semibold text-gray-900">{registrar.name}</h3>
+                <p className="text-sm text-gray-600">{registrar.email}</p>
                 <p className="mt-1 text-xs text-gray-500">
-                  Roll: {student.roll_number || "-"} | Program: {student.program || "-"}
+                  Department: {registrar.department || "-"} | Designation: {registrar.designation || "-"}
                 </p>
               </div>
 
               <div className="flex items-center gap-2">
                 <span
                   className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                    student.is_allowed
+                    registrar.is_allowed
                       ? "bg-green-100 text-green-700"
                       : "bg-red-100 text-red-700"
                   }`}
                 >
-                  {student.is_allowed ? "Allowed" : "Blocked"}
+                  {registrar.is_allowed ? "Allowed" : "Blocked"}
                 </span>
-                {showChatHistoryButton && (
-                  <LoadingLinkButton
-                    href={`${chatHistoryBasePath}/${student.id}/chat-history`}
-                    variant="secondary"
-                    className="h-9 border border-gray-300 px-3 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                  >
-                    Open Student Chat History
-                  </LoadingLinkButton>
-                )}
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => startEdit(student)}
+                  onClick={() => startEdit(registrar)}
                 >
                   Edit
                 </Button>
               </div>
             </div>
 
-            {editingId === student.id && form && (
+            {editingId === registrar.id && form && (
               <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
@@ -306,38 +273,6 @@ export default function StudentManagement({
                       onChange={(event) =>
                         setForm((prev) =>
                           prev ? { ...prev, email: event.target.value } : prev
-                        )
-                      }
-                      className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm text-gray-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">
-                      Roll Number
-                    </label>
-                    <input
-                      type="text"
-                      value={form.roll_number}
-                      onChange={(event) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, roll_number: event.target.value } : prev
-                        )
-                      }
-                      className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm text-gray-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">
-                      Program
-                    </label>
-                    <input
-                      type="text"
-                      value={form.program}
-                      onChange={(event) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, program: event.target.value } : prev
                         )
                       }
                       className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm text-gray-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
@@ -375,7 +310,6 @@ export default function StudentManagement({
                       className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm text-gray-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     />
                   </div>
-
                 </div>
 
                 <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700">
@@ -389,7 +323,7 @@ export default function StudentManagement({
                     }
                     className="h-4 w-4 rounded border-gray-300"
                   />
-                  Allow this student to access the portal
+                  Allow this registrar to access the portal
                 </label>
 
                 <div className="mt-4 flex flex-wrap gap-2">

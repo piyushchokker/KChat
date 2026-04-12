@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { getDocuments, deleteDocument } from "@/services/document-service";
 import type { UploadedDocument } from "@/types";
 import Button from "@/components/common/button";
-import { DOCUMENT_TYPES, SCHOOLS } from "@/utils/constants";
 import LoadingLinkButton from "@/components/common/loading-link-button";
+import { useDocumentMetadataOptions } from "@/lib/use-document-metadata-options";
 
 interface DocumentListProps {
   limit?: number;
@@ -79,6 +79,7 @@ export default function DocumentList({
   fetchAll = false,
   showSeeAllButton = false,
 }: DocumentListProps) {
+  const { options: metadataOptions } = useDocumentMetadataOptions();
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -174,7 +175,7 @@ export default function DocumentList({
                   className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm text-gray-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 >
                   <option value="">All types</option>
-                  {DOCUMENT_TYPES.map((docType) => (
+                  {metadataOptions.documentTypes.map((docType) => (
                     <option key={docType.value} value={docType.value}>
                       {docType.label}
                     </option>
@@ -194,7 +195,7 @@ export default function DocumentList({
                   className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm text-gray-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 >
                   <option value="">All schools</option>
-                  {SCHOOLS.map((school) => (
+                  {metadataOptions.schools.map((school) => (
                     <option key={school.id} value={school.id}>
                       {school.name}
                     </option>

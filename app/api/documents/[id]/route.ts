@@ -32,12 +32,13 @@ export async function GET(_req: Request, context: RouteContext) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const isRegistrar = currentUser.role === "registrar";
+  const isPrivilegedUser =
+    currentUser.role === "registrar" || currentUser.role === "admin";
   const studentSelect =
     "id, title, file_name, file_url, file_size, document_type, school, course, semester, effective_from, effective_till, keywords, issuing_authority, created_at, updated_at";
   const registrarSelect =
     `${studentSelect}, storage_path, uploaded_by, uploaded_by_user:users!documents_uploaded_by_fkey(name, email)`;
-  const selectColumns = isRegistrar ? registrarSelect : studentSelect;
+  const selectColumns = isPrivilegedUser ? registrarSelect : studentSelect;
 
   const { data, error } = await admin
     .from("documents")
@@ -55,7 +56,7 @@ export async function GET(_req: Request, context: RouteContext) {
 /**
  * PATCH /api/documents/[id]
  *
- * Update document metadata (registrar only).
+ * Update document metadata (admin/registrar only).
  */
 export async function PATCH(req: Request, context: RouteContext) {
   const supabase = await createServerClient();
@@ -67,14 +68,19 @@ export async function PATCH(req: Request, context: RouteContext) {
   const { id } = await context.params;
   const admin = createAdminClient();
 
-  // Verify registrar role
+  // Verify admin/registrar role
   const { data: user } = await admin
     .from("users")
     .select("id, role, is_allowed")
     .eq("auth_id", authUser.id)
     .single();
 
-  if (!user || user.role !== "registrar" || user.is_allowed === false) {
+  const canManageDocuments =
+    user &&
+    (user.role === "registrar" || user.role === "admin") &&
+    user.is_allowed !== false;
+
+  if (!canManageDocuments) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -105,7 +111,7 @@ export async function PATCH(req: Request, context: RouteContext) {
   // Audit
   await admin.from("audit_logs").insert({
     user_id: user.id,
-    action: "document_updated",
+    action: user.role === "admin" ? "document_updated_by_admin" : "document_updated",
     entity_type: "document",
     entity_id: id,
     metadata: updates as unknown as Record<string, string>,
@@ -117,7 +123,7 @@ export async function PATCH(req: Request, context: RouteContext) {
 /**
  * DELETE /api/documents/[id]
  *
- * Delete document and its file from storage (registrar only).
+ * Delete document and its file from storage (admin/registrar only).
  */
 export async function DELETE(_req: Request, context: RouteContext) {
   const supabase = await createServerClient();
@@ -129,14 +135,19 @@ export async function DELETE(_req: Request, context: RouteContext) {
   const { id } = await context.params;
   const admin = createAdminClient();
 
-  // Verify registrar
+  // Verify admin/registrar
   const { data: user } = await admin
     .from("users")
     .select("id, role, is_allowed")
     .eq("auth_id", authUser.id)
     .single();
 
-  if (!user || user.role !== "registrar" || user.is_allowed === false) {
+  const canManageDocuments =
+    user &&
+    (user.role === "registrar" || user.role === "admin") &&
+    user.is_allowed !== false;
+
+  if (!canManageDocuments) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -164,7 +175,7 @@ export async function DELETE(_req: Request, context: RouteContext) {
   // Audit
   await admin.from("audit_logs").insert({
     user_id: user.id,
-    action: "document_deleted",
+    action: user.role === "admin" ? "document_deleted_by_admin" : "document_deleted",
     entity_type: "document",
     entity_id: id,
     metadata: { storage_path: doc.storage_path },

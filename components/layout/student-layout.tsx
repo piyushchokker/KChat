@@ -56,19 +56,6 @@ function getHistoryGroupLabel(updatedAt: string, today: Date): string {
   });
 }
 
-function formatHistoryDate(updatedAt: string): string {
-  const parsed = new Date(updatedAt);
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
-
-  return parsed.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
 function buildHistoryGroups(items: ConversationSummary[]): HistoryGroup[] {
   const groups = new Map<string, ConversationSummary[]>();
   const today = startOfDay(new Date());
@@ -491,10 +478,6 @@ export default function StudentLayout({
                 ) : null}
 
                 <div className="mt-5 border-t border-gray-100 pt-4 dark:border-zinc-800">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">
-                    History
-                  </p>
-
                   {isHistoryLoading ? (
                     <div className="flex justify-center py-4" role="status" aria-live="polite">
                       <span
@@ -526,9 +509,6 @@ export default function StudentLayout({
                                 (isResumable &&
                                   activeSessionId === normalizedSessionId);
                               const title = conversation.title?.trim() || "Untitled chat";
-                              const dateLabel = formatHistoryDate(
-                                conversation.updated_at
-                              );
 
                               return (
                                 <button
@@ -546,11 +526,6 @@ export default function StudentLayout({
                                   <span className="block truncate text-sm font-medium">
                                     {title}
                                   </span>
-                                  {dateLabel ? (
-                                    <span className="mt-0.5 block text-[11px] text-gray-500 dark:text-zinc-400">
-                                      {dateLabel}{isResumable ? " | Continue chat" : ""}
-                                    </span>
-                                  ) : null}
                                 </button>
                               );
                             })}

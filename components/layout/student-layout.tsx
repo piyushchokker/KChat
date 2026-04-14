@@ -310,9 +310,7 @@ export default function StudentLayout({
               onClick={toggleSidebar}
               aria-label="Toggle chat sidebar"
               aria-expanded={isSidebarOpen}
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-lg text-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white/50 hover:bg-black/10 active:bg-black/15 dark:hover:bg-white/15 dark:active:bg-white/20 ${
-                isSidebarOpen ? "bg-black/15 dark:bg-white/20" : "bg-transparent"
-              }`}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/50"
             >
               <svg
                 className="h-5 w-5"
@@ -434,7 +432,7 @@ export default function StudentLayout({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="w-full justify-start border border-transparent bg-transparent text-gray-800 transition-colors hover:border-gray-200 hover:bg-gray-100 hover:text-gray-900 active:border-gray-300 active:bg-gray-200 focus:ring-black/20 dark:text-zinc-100 dark:hover:border-white/25 dark:hover:bg-white/10 dark:hover:text-white dark:active:border-white/35 dark:active:bg-white/15 dark:focus:ring-white/30"
+                  className="w-full justify-start border border-gray-200 bg-gray-100 text-gray-900 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-100 focus:ring-black/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:active:bg-zinc-800 dark:focus:ring-white/30"
                   isLoading={isStartingNewChat}
                   onClick={handleStartNewChat}
                 >

@@ -26,6 +26,9 @@ interface HistoryGroup {
   items: ConversationSummary[];
 }
 
+const THEME_TRANSITION_MS = 100;
+const THEME_TRANSITION_CLEANUP_MS = THEME_TRANSITION_MS + 180;
+
 function startOfDay(value: Date): Date {
   const normalized = new Date(value);
   normalized.setHours(0, 0, 0, 0);
@@ -101,6 +104,7 @@ export default function StudentLayout({
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const themeTransitionTimeoutRef = useRef<number | null>(null);
   const canShowChatSidebar =
     pathname.startsWith("/student") && !pathname.startsWith("/student/banned");
   const isProfilePage = pathname.startsWith("/student/profile");
@@ -245,7 +249,19 @@ export default function StudentLayout({
     const nextMode = !isDarkMode;
     setIsDarkMode(nextMode);
 
-    document.documentElement.classList.toggle("dark", nextMode);
+    const root = document.documentElement;
+
+    if (themeTransitionTimeoutRef.current !== null) {
+      window.clearTimeout(themeTransitionTimeoutRef.current);
+    }
+
+    root.classList.add("theme-transition");
+    root.classList.toggle("dark", nextMode);
+
+    themeTransitionTimeoutRef.current = window.setTimeout(() => {
+      root.classList.remove("theme-transition");
+      themeTransitionTimeoutRef.current = null;
+    }, THEME_TRANSITION_CLEANUP_MS);
 
     try {
       localStorage.setItem("kchat-theme", nextMode ? "dark" : "light");
@@ -269,6 +285,15 @@ export default function StudentLayout({
 
   useEffect(() => {
     setIsDarkMode(document.documentElement.classList.contains("dark"));
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (themeTransitionTimeoutRef.current !== null) {
+        window.clearTimeout(themeTransitionTimeoutRef.current);
+      }
+      document.documentElement.classList.remove("theme-transition");
+    };
   }, []);
 
   useEffect(() => {
@@ -310,7 +335,7 @@ export default function StudentLayout({
               onClick={toggleSidebar}
               aria-label="Toggle chat sidebar"
               aria-expanded={isSidebarOpen}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/50"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
             >
               <svg
                 className="h-5 w-5"
@@ -364,9 +389,33 @@ export default function StudentLayout({
                   </button>
                     <button
                       onClick={handleToggleDarkMode}
-                      className="w-full cursor-pointer rounded-lg px-4 py-2.5 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      className="flex w-full cursor-pointer items-center justify-between rounded-lg px-4 py-2.5 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                     >
-                      {isDarkMode ? "Light Mode" : "Dark Mode"}
+                      <span>{isDarkMode ? "Light Mode" : "Dark Mode"}</span>
+                      {isDarkMode ? (
+                        <svg
+                          className="h-4 w-4"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          aria-hidden
+                        >
+                          <circle cx="12" cy="12" r="4" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+                        </svg>
+                      ) : (
+                        <svg
+                          className="h-4 w-4"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          aria-hidden
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1111.21 3c0 .48.03.95.1 1.41a7 7 0 009.69 8.38z" />
+                        </svg>
+                      )}
                     </button>
                   <button
                     onClick={handleSignOut}

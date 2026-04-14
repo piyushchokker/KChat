@@ -89,6 +89,7 @@ export default function StudentLayout({
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [isHistoryNavigating, setIsHistoryNavigating] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const isChatLoading = useChatStore((state) => state.isLoading);
   const canShowChatSidebar =
@@ -127,7 +128,7 @@ export default function StudentLayout({
   const latestConversation = historyItems[0] ?? null;
   const latestConversationId = latestConversation?.id ?? null;
   const showHistoryLoadingOverlay =
-    isHistoryNavigating || (isHistoryRoute && isChatLoading);
+    isHydrated && (isHistoryNavigating || (isHistoryRoute && isChatLoading));
 
   const historyGroups = useMemo(
     () => buildHistoryGroups(historyItems),
@@ -265,6 +266,7 @@ export default function StudentLayout({
 
   useEffect(() => {
     setIsDarkMode(document.documentElement.classList.contains("dark"));
+    setIsHydrated(true);
   }, []);
 
   useEffect(() => {
@@ -478,7 +480,9 @@ export default function StudentLayout({
                 ) : null}
 
                 <div className="mt-5 border-t border-gray-100 pt-4 dark:border-zinc-800">
-                  {isHistoryLoading ? (
+                  {!isHydrated ? (
+                    <div className="py-2" aria-hidden />
+                  ) : isHistoryLoading ? (
                     <div className="flex justify-center py-4" role="status" aria-live="polite">
                       <span
                         className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-700 dark:border-zinc-600 dark:border-t-zinc-100"

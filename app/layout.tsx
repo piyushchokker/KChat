@@ -1,9 +1,19 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
+import RouteThemeController from "@/components/common/route-theme-controller";
 
 const THEME_INIT_SCRIPT = `(() => {
   try {
+    const path = window.location.pathname || "";
+    const forceLight = path === "/admin" || path.startsWith("/admin/") || path === "/registrar" || path.startsWith("/registrar/");
+
+    if (forceLight) {
+      document.documentElement.classList.remove("dark");
+      return;
+    }
+
     const storedTheme = localStorage.getItem("kchat-theme");
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     const shouldUseDark = storedTheme ? storedTheme === "dark" : prefersDark;
@@ -42,11 +52,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <Script id="kchat-theme-init" strategy="beforeInteractive">
+          {THEME_INIT_SCRIPT}
+        </Script>
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <RouteThemeController />
         {children}
       </body>
     </html>

@@ -45,19 +45,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const incoming = typeof sessionId === "string" ? sessionId.trim() : "";
 
     if (incoming.length > 0) {
-      set((state) => {
-        if (state.retSessionId === incoming) {
-          return state;
-        }
-
-        return {
-          retSessionId: incoming,
-          activeConversationId: null,
-          messages: [],
-          lastRagUsed: null,
-          lastRagRouterDecision: null,
-          error: null,
-        };
+      // Always reset conversation context on explicit session-route init.
+      // This prevents stale conversation/session mismatches after viewing read-only history.
+      set({
+        retSessionId: incoming,
+        activeConversationId: null,
+        messages: [],
+        lastRagUsed: null,
+        lastRagRouterDecision: null,
+        error: null,
       });
       return;
     }

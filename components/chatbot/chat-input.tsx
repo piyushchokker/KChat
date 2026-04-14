@@ -35,9 +35,9 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 shadow-lg"
+      className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
     >
-      <div className="text-gray-400">
+      <div className="text-gray-400 dark:text-zinc-500">
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
         </svg>
@@ -49,13 +49,13 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         onChange={(e) => setValue(e.target.value)}
         placeholder="Type your message here..."
         disabled={disabled}
-        className="flex-1 border-none bg-transparent text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none disabled:opacity-50"
+        className="flex-1 border-none bg-transparent text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none disabled:opacity-50 dark:text-zinc-100 dark:placeholder:text-zinc-500"
       />
       <button
         type="submit"
         disabled={!value.trim() || disabled}
         aria-busy={isSending || undefined}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-800 text-white transition-colors hover:bg-blue-900 disabled:opacity-40"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-800 text-white transition-colors hover:bg-blue-900 disabled:opacity-40 dark:bg-blue-900/70 dark:hover:bg-blue-800/75"
       >
         {isSending ? (
           <span

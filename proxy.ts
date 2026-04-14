@@ -94,6 +94,8 @@ export async function proxy(request: NextRequest) {
   const isProtected =
     pathname.startsWith("/student/chat") ||
     pathname.startsWith("/student/dashboard") ||
+    pathname.startsWith("/student/profile") ||
+    pathname.startsWith("/student/history") ||
     pathname.startsWith("/registrar/dashboard") ||
     isAdminProtectedRoute ||
     pathname.startsWith("/api/auth/sync") ||

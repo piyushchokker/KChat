@@ -56,6 +56,7 @@ export interface ConversationSummary {
   id: string;
   title: string;
   is_active: boolean;
+  ret_session_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -69,6 +70,26 @@ interface RetHistoryMessage {
 interface RetHistoryResponse {
   sessionId: string;
   messages: RetHistoryMessage[];
+}
+
+const SESSION_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function extractSessionIdFromPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const candidate =
+    (payload as { sessionId?: unknown }).sessionId ??
+    (payload as { session_id?: unknown }).session_id;
+
+  if (typeof candidate !== "string") {
+    return null;
+  }
+
+  const normalized = candidate.trim().toLowerCase();
+  return SESSION_ID_PATTERN.test(normalized) ? normalized : null;
 }
 
 function parseSseEvent(block: string): { event: string; data: string } | null {
@@ -89,6 +110,32 @@ function parseSseEvent(block: string): { event: string; data: string } | null {
 
   if (dataLines.length === 0) return null;
   return { event, data: dataLines.join("\n") };
+}
+
+/**
+ * Request a fresh RET session id for the current user.
+ */
+export async function createRetSession(): Promise<string> {
+  const res = await fetch("/api/chat/session/init", {
+    method: "POST",
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const err = await res
+      .json()
+      .catch(() => ({ error: "Failed to initialize chat session" }));
+    throw new Error(err.error ?? "Failed to initialize chat session");
+  }
+
+  const payload = await res.json();
+  const sessionId = extractSessionIdFromPayload(payload);
+
+  if (!sessionId) {
+    throw new Error("Session initialization returned an invalid session id");
+  }
+
+  return sessionId;
 }
 
 /**

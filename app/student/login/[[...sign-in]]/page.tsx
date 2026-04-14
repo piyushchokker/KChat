@@ -30,10 +30,12 @@ export default function StudentLoginPage() {
       await waitForNextPaint();
 
       const supabase = createBrowserClient();
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+
       await supabase.auth.signInWithOAuth({
         provider: "azure",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/student/chat`,
+          redirectTo: callbackUrl.toString(),
           scopes: "openid email profile",
         },
       });

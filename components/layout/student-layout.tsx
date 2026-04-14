@@ -455,7 +455,7 @@ export default function StudentLayout({
         <>
           {showHistoryLoadingOverlay ? (
             <div
-              className="pointer-events-none fixed inset-0 z-[70] flex items-center justify-center backdrop-blur-sm"
+              className="pointer-events-none fixed inset-0 z-[70] flex items-center justify-center backdrop-blur-[1px]"
               role="status"
               aria-live="polite"
             >

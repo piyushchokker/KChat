@@ -95,6 +95,7 @@ async function waitMs(ms: number) {
 async function fetchWithRetry(
   backendUrl: string,
   query: string,
+  accessToken: string,
   sessionId?: string
 ): Promise<Response> {
   const timeoutMs = getPositiveIntEnv(
@@ -121,6 +122,7 @@ async function fetchWithRetry(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
           "ngrok-skip-browser-warning": "true",
         },
         body: JSON.stringify(
@@ -180,6 +182,18 @@ export async function POST(req: Request) {
   const { data: { user: authUser } } = await supabase.auth.getUser();
   if (!authUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const accessToken = session?.access_token;
+
+  if (!accessToken) {
+    return NextResponse.json(
+      { error: "Authentication failed: missing session access token" },
+      { status: 401 }
+    );
   }
 
   const windowMs = getPositiveIntEnv(
@@ -445,6 +459,7 @@ export async function POST(req: Request) {
       (async () => {
         const aiResponse = await streamPythonBackend(
           trimmedQuery,
+          accessToken,
           effectiveSessionId,
           (delta) => {
             enqueue("delta", { text: delta });
@@ -587,6 +602,7 @@ function normalizeFinalPayload(payload: unknown): StreamedAiResponse {
 
 async function streamPythonBackend(
   query: string,
+  accessToken: string,
   sessionId: string | undefined,
   onDelta: (delta: string) => void,
   resilience: ChatResilienceManager
@@ -613,7 +629,7 @@ async function streamPythonBackend(
   }
 
   try {
-    const res = await fetchWithRetry(backendUrl, query, sessionId);
+    const res = await fetchWithRetry(backendUrl, query, accessToken, sessionId);
     const resolvedSessionId = res.headers.get("x-session-id") ?? sessionId;
     const ragUsed = parseRagUsedHeader(res.headers.get("x-rag-used"));
     const ragRouterDecision = parseRagRouterDecisionHeader(

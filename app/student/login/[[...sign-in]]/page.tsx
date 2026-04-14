@@ -3,6 +3,7 @@
 
 import { createBrowserClient } from "@/lib/supabase";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Button from "@/components/common/button";
 
 function waitForNextPaint(): Promise<void> {
@@ -14,6 +15,10 @@ function waitForNextPaint(): Promise<void> {
 
 export default function StudentLoginPage() {
   const [loading, setLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const errorCode = searchParams.get("error");
+  const authFailed = errorCode === "auth_failed";
+  const sessionInitFailed = errorCode === "session_init_failed";
 
   const handleMicrosoftLogin = async () => {
     if (loading) return;
@@ -48,6 +53,16 @@ export default function StudentLoginPage() {
         <p className="mt-2 text-sm text-gray-500">
           Use your university Microsoft account to continue
         </p>
+        {authFailed ? (
+          <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            Authentication failed. Please sign in with a valid approved student account.
+          </p>
+        ) : null}
+        {sessionInitFailed ? (
+          <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Could not initialize chat session. Please try signing in again.
+          </p>
+        ) : null}
         <Button
           onClick={handleMicrosoftLogin}
           isLoading={loading}

@@ -78,6 +78,7 @@ export default function ChatContainer({ initialRetSessionId }: ChatContainerProp
           src="/krmu_kchat_bg.jpg"
           alt=""
           fill
+          loading="eager"
           className="object-cover opacity-10"
           aria-hidden
         />

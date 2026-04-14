@@ -54,6 +54,15 @@ export async function GET(_req: Request, context: RouteContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const accessToken = session?.access_token;
+
+  if (!accessToken) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { sessionId } = await context.params;
   const normalizedSessionId = sessionId.trim().toLowerCase();
 
@@ -94,7 +103,10 @@ export async function GET(_req: Request, context: RouteContext) {
 
   try {
     const backendResponse = await fetch(historyUrl, {
-      headers: { "ngrok-skip-browser-warning": "true" },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "ngrok-skip-browser-warning": "true",
+      },
       cache: "no-store",
     });
 

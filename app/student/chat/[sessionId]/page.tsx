@@ -1,4 +1,5 @@
 import { createServerClient, createAdminClient } from "@/lib/supabase-server";
+import { verifyStudentAccess } from "@/lib/student-auth";
 import { redirect } from "next/navigation";
 import StudentLayout from "@/components/layout/student-layout";
 import ChatContainer from "@/components/chatbot/chat-container";
@@ -34,7 +35,17 @@ export default async function StudentChatSessionPage(
   } = await supabase.auth.getUser();
 
   if (!authUser) {
-    redirect("/student/login");
+    redirect("/student/login?error=auth_failed");
+  }
+
+  const access = await verifyStudentAccess(authUser);
+
+  if (!access.ok) {
+    if (access.reason === "not_allowed") {
+      redirect("/student/banned");
+    }
+
+    redirect("/student/login?error=auth_failed");
   }
 
   // Sync user to Supabase on every chat load.

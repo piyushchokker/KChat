@@ -1,5 +1,5 @@
 import { createServerClient } from "@/lib/supabase-server";
-import { randomUUID } from "crypto";
+import { verifyStudentAccess } from "@/lib/student-auth";
 import { redirect } from "next/navigation";
 
 export default async function StudentChatBootstrap() {
@@ -9,9 +9,18 @@ export default async function StudentChatBootstrap() {
   } = await supabase.auth.getUser();
 
   if (!authUser) {
-    redirect("/student/login");
+    redirect("/student/login?error=auth_failed");
   }
 
-  const sessionId = randomUUID();
-  redirect(`/student/chat/${sessionId}`);
+  const access = await verifyStudentAccess(authUser);
+
+  if (!access.ok) {
+    if (access.reason === "not_allowed") {
+      redirect("/student/banned");
+    }
+
+    redirect("/student/login?error=auth_failed");
+  }
+
+  redirect("/api/chat/session/init");
 }

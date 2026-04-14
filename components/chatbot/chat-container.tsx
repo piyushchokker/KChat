@@ -122,11 +122,15 @@ export default function ChatContainer({
             {isReadOnlyHistory ? (
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-blue-900 dark:text-blue-200">Chat History</h2>
-                <p className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
-                  {isLoading
-                    ? "Loading saved conversation..."
-                    : "No messages found for this conversation."}
-                </p>
+                {isLoading ? (
+                  <p className="sr-only" role="status" aria-live="polite">
+                    Loading chat...
+                  </p>
+                ) : (
+                  <p className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
+                    No messages found for this conversation.
+                  </p>
+                )}
               </div>
             ) : (
               <>

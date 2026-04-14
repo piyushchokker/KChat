@@ -215,7 +215,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   loadConversation: async (conversationId) => {
-    set({ isLoading: true, error: null });
+    set({
+      messages: [],
+      activeConversationId: conversationId,
+      lastRagUsed: null,
+      lastRagRouterDecision: null,
+      isLoading: true,
+      error: null,
+    });
     try {
       const messages = await getConversationMessages(conversationId);
       set({

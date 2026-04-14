@@ -11,6 +11,7 @@ import {
   type ConversationSummary,
 } from "@/services/chat-service";
 import UniversityHeader from "@/components/common/university-header";
+import { useChatStore } from "@/store/chat-store";
 
 interface StudentLayoutProps {
   children: React.ReactNode;
@@ -103,10 +104,13 @@ export default function StudentLayout({
   const [historyItems, setHistoryItems] = useState<ConversationSummary[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [isHistoryNavigating, setIsHistoryNavigating] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const themeTransitionTimeoutRef = useRef<number | null>(null);
+  const isChatLoading = useChatStore((state) => state.isLoading);
   const canShowChatSidebar =
     pathname.startsWith("/student") && !pathname.startsWith("/student/banned");
+  const isHistoryRoute = pathname.startsWith("/student/history/");
   const isProfilePage = pathname.startsWith("/student/profile");
 
   const activeSessionId = useMemo(() => {
@@ -139,6 +143,8 @@ export default function StudentLayout({
 
   const latestConversation = historyItems[0] ?? null;
   const latestConversationId = latestConversation?.id ?? null;
+  const showHistoryLoadingOverlay =
+    isHistoryNavigating || (isHistoryRoute && isChatLoading);
 
   const historyGroups = useMemo(
     () => buildHistoryGroups(historyItems),
@@ -192,6 +198,7 @@ export default function StudentLayout({
       return;
     }
 
+    setIsHistoryNavigating(true);
     setIsSidebarOpen(false);
 
     const normalizedSessionId =
@@ -200,6 +207,7 @@ export default function StudentLayout({
 
     if (isLatestConversation && normalizedSessionId) {
       if (activeSessionId === normalizedSessionId) {
+        setIsHistoryNavigating(false);
         router.refresh();
         return;
       }
@@ -215,6 +223,7 @@ export default function StudentLayout({
     }
 
     if (activeHistoryConversationId === normalizedConversationId) {
+      setIsHistoryNavigating(false);
       return;
     }
 
@@ -320,6 +329,7 @@ export default function StudentLayout({
   useEffect(() => {
     setIsSidebarOpen(false);
     setSidebarError(null);
+    setIsHistoryNavigating(false);
   }, [pathname]);
 
   const firstName = user?.name?.split(" ")[0] || "Student";
@@ -443,6 +453,20 @@ export default function StudentLayout({
       />
       {canShowChatSidebar ? (
         <>
+          {showHistoryLoadingOverlay ? (
+            <div
+              className="pointer-events-none fixed inset-0 z-[70] flex items-center justify-center backdrop-blur-sm"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-zinc-200">
+                <span className="h-2 w-2 animate-bounce rounded-full bg-gray-500 [animation-delay:0ms] dark:bg-zinc-300" />
+                <span className="h-2 w-2 animate-bounce rounded-full bg-gray-500 [animation-delay:120ms] dark:bg-zinc-300" />
+                <span className="h-2 w-2 animate-bounce rounded-full bg-gray-500 [animation-delay:240ms] dark:bg-zinc-300" />
+                <span className="ml-1">Loading chat...</span>
+              </div>
+            </div>
+          ) : null}
           <div
             className={`fixed inset-0 z-40 bg-black/35 transition-opacity duration-300 ${
               isSidebarOpen ? "opacity-100" : "pointer-events-none opacity-0"

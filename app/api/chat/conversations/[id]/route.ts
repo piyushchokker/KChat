@@ -20,12 +20,35 @@ export async function GET(_req: Request, context: RouteContext) {
   const { id } = await context.params;
   const admin = createAdminClient();
 
-  // Verify ownership
-  const { data: user } = await admin
+  const normalizedEmail = (authUser.email ?? "").trim().toLowerCase();
+
+  // Verify ownership with robust user resolution:
+  // 1) auth_id lookup
+  // 2) email fallback for older rows that may miss auth_id
+  const { data: byAuthId } = await admin
     .from("users")
-    .select("id")
+    .select("id, auth_id")
     .eq("auth_id", authUser.id)
-    .single();
+    .limit(1)
+    .maybeSingle();
+
+  let user = byAuthId;
+
+  if (!user && normalizedEmail) {
+    const { data: byEmail } = await admin
+      .from("users")
+      .select("id, auth_id")
+      .ilike("email", normalizedEmail)
+      .limit(1)
+      .maybeSingle();
+
+    user = byEmail;
+
+    // Best-effort backfill so future lookups can use auth_id directly.
+    if (user && !user.auth_id) {
+      await admin.from("users").update({ auth_id: authUser.id }).eq("id", user.id);
+    }
+  }
 
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -85,11 +108,31 @@ export async function DELETE(_req: Request, context: RouteContext) {
   const { id } = await context.params;
   const admin = createAdminClient();
 
-  const { data: user } = await admin
+  const normalizedEmail = (authUser.email ?? "").trim().toLowerCase();
+
+  const { data: byAuthId } = await admin
     .from("users")
-    .select("id")
+    .select("id, auth_id")
     .eq("auth_id", authUser.id)
-    .single();
+    .limit(1)
+    .maybeSingle();
+
+  let user = byAuthId;
+
+  if (!user && normalizedEmail) {
+    const { data: byEmail } = await admin
+      .from("users")
+      .select("id, auth_id")
+      .ilike("email", normalizedEmail)
+      .limit(1)
+      .maybeSingle();
+
+    user = byEmail;
+
+    if (user && !user.auth_id) {
+      await admin.from("users").update({ auth_id: authUser.id }).eq("id", user.id);
+    }
+  }
 
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });

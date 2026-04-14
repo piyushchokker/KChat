@@ -174,7 +174,7 @@ export default function ChatContainer({
       </div>
 
       {!isReadOnlyHistory ? (
-        <div className="relative z-10 border-t border-gray-100 bg-white/90 px-4 py-4 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/90 sm:px-8">
+        <div className="relative z-10 px-4 py-4 sm:px-8">
           <div className="mx-auto max-w-4xl">
             {showRoutingStatus ? (
               <p className="mb-2 text-xs text-gray-500 dark:text-zinc-400">

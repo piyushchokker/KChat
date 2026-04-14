@@ -127,17 +127,4 @@
   }
 }
 
-.theme-transition,
-.theme-transition * {
-  transition-duration: 850ms;
-  transition-property: background-color, border-color, color;
-  transition-timing-function: linear;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .theme-transition,
-  .theme-transition * {
-    transition: none !important;
-  }
-}
 

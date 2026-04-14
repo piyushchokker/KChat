@@ -27,9 +27,6 @@ interface HistoryGroup {
   items: ConversationSummary[];
 }
 
-const THEME_TRANSITION_MS = 100;
-const THEME_TRANSITION_CLEANUP_MS = THEME_TRANSITION_MS + 180;
-
 function startOfDay(value: Date): Date {
   const normalized = new Date(value);
   normalized.setHours(0, 0, 0, 0);
@@ -106,7 +103,6 @@ export default function StudentLayout({
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [isHistoryNavigating, setIsHistoryNavigating] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const themeTransitionTimeoutRef = useRef<number | null>(null);
   const isChatLoading = useChatStore((state) => state.isLoading);
   const canShowChatSidebar =
     pathname.startsWith("/student") && !pathname.startsWith("/student/banned");
@@ -258,19 +254,7 @@ export default function StudentLayout({
     const nextMode = !isDarkMode;
     setIsDarkMode(nextMode);
 
-    const root = document.documentElement;
-
-    if (themeTransitionTimeoutRef.current !== null) {
-      window.clearTimeout(themeTransitionTimeoutRef.current);
-    }
-
-    root.classList.add("theme-transition");
-    root.classList.toggle("dark", nextMode);
-
-    themeTransitionTimeoutRef.current = window.setTimeout(() => {
-      root.classList.remove("theme-transition");
-      themeTransitionTimeoutRef.current = null;
-    }, THEME_TRANSITION_CLEANUP_MS);
+    document.documentElement.classList.toggle("dark", nextMode);
 
     try {
       localStorage.setItem("kchat-theme", nextMode ? "dark" : "light");
@@ -294,15 +278,6 @@ export default function StudentLayout({
 
   useEffect(() => {
     setIsDarkMode(document.documentElement.classList.contains("dark"));
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (themeTransitionTimeoutRef.current !== null) {
-        window.clearTimeout(themeTransitionTimeoutRef.current);
-      }
-      document.documentElement.classList.remove("theme-transition");
-    };
   }, []);
 
   useEffect(() => {

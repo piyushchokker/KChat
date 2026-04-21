@@ -27,6 +27,9 @@ Create `.env.local` from `.env.example` and set:
 - `PYTHON_BACKEND_URL`
 - `PYTHON_BACKEND_SESSION_URL` (optional)
 - `TRUSTED_EMAIL_DOMAINS`
+- `NEXT_PUBLIC_DEBUG_REGISTRAR_UPLOAD` (optional, default `false`)
+- `DEBUG_REGISTRAR_UPLOAD` (optional, default `false`)
+- `DEBUG_REGISTRAR_UPLOAD_MAX_JSON_BYTES` (optional, default `1048576`)
 - `CHAT_RATE_LIMIT_WINDOW_MS`
 - `CHAT_RATE_LIMIT_PER_USER`
 - `CHAT_RATE_LIMIT_PER_IP`
@@ -39,6 +42,12 @@ Create `.env.local` from `.env.example` and set:
 - `CHAT_BACKEND_CIRCUIT_OPEN_MS`
 - `REDIS_URL`
 - `REDIS_DISABLED`
+
+Registrar upload debugging:
+
+- Set `NEXT_PUBLIC_DEBUG_REGISTRAR_UPLOAD=true` to log full upload request payload in browser console.
+- Set `DEBUG_REGISTRAR_UPLOAD=true` to log full upload payload in the Next.js server terminal.
+- For `.json`/`.jsonl` uploads, server logs include full file text up to `DEBUG_REGISTRAR_UPLOAD_MAX_JSON_BYTES`.
 
 Redis-backed resilience:
 

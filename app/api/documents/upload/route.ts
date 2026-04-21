@@ -41,6 +41,9 @@ const MIME_BY_EXTENSION: Record<string, string[]> = {
   ".xml": ["application/xml", "text/xml", "text/plain"],
 };
 
+const JSON_TEXT_EXTENSIONS = new Set([".json", ".jsonl"]);
+const FALLBACK_DEBUG_JSON_BYTES = 1024 * 1024;
+
 const metadataSchema = z
   .object({
     title: z.string().trim().min(3).max(200),
@@ -177,6 +180,85 @@ function validateMimeType(extension: string, providedMime: string): boolean {
   return allowed.includes(providedMime.toLowerCase());
 }
 
+function isUploadDebugEnabled(req: Request): boolean {
+  if (process.env.DEBUG_REGISTRAR_UPLOAD === "true") {
+    return true;
+  }
+
+  return req.headers.get("x-debug-registrar-upload") === "1";
+}
+
+function resolveUploadDebugJsonByteLimit(): number {
+  const parsed = Number.parseInt(
+    process.env.DEBUG_REGISTRAR_UPLOAD_MAX_JSON_BYTES ?? "",
+    10
+  );
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return FALLBACK_DEBUG_JSON_BYTES;
+  }
+
+  return parsed;
+}
+
+async function logUploadDebugPayload({
+  req,
+  file,
+  metadataStr,
+  metadataRaw,
+  extension,
+}: {
+  req: Request;
+  file: File;
+  metadataStr: string;
+  metadataRaw: unknown;
+  extension: string;
+}) {
+  const payloadSnapshot = {
+    method: req.method,
+    contentType: req.headers.get("content-type"),
+    contentLength: req.headers.get("content-length"),
+    file: {
+      name: file.name,
+      type: file.type || null,
+      sizeBytes: file.size,
+      extension,
+      lastModified: file.lastModified,
+      lastModifiedIso:
+        file.lastModified > 0 ? new Date(file.lastModified).toISOString() : null,
+    },
+    metadataString: metadataStr,
+    metadataParsed: metadataRaw,
+  };
+
+  console.log(
+    "[Registrar Upload Debug] Server payload:\n" +
+      JSON.stringify(payloadSnapshot, null, 2)
+  );
+
+  if (!JSON_TEXT_EXTENSIONS.has(extension)) {
+    return;
+  }
+
+  const maxBytes = resolveUploadDebugJsonByteLimit();
+  if (file.size > maxBytes) {
+    console.log(
+      `[Registrar Upload Debug] JSON file content skipped because file size ${file.size} exceeds DEBUG_REGISTRAR_UPLOAD_MAX_JSON_BYTES=${maxBytes}.`
+    );
+    return;
+  }
+
+  try {
+    const fileText = await file.text();
+    console.log("[Registrar Upload Debug] Server JSON file content:\n" + fileText);
+  } catch (error) {
+    console.error(
+      "[Registrar Upload Debug] Failed to read JSON file content:",
+      error
+    );
+  }
+}
+
 async function runMalwareScan(fileBuffer: Buffer, fileName: string) {
   const scanUrl = process.env.MALWARE_SCAN_URL;
   if (!scanUrl) {
@@ -253,6 +335,7 @@ export async function POST(req: Request) {
   }
 
   try {
+    const debugUpload = isUploadDebugEnabled(req);
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const metadataStr = formData.get("metadata") as string | null;
@@ -264,14 +347,36 @@ export async function POST(req: Request) {
       );
     }
 
+    const extension = getExtension(file.name);
+
     let metadataRaw: unknown;
     try {
       metadataRaw = JSON.parse(metadataStr);
     } catch {
+      if (debugUpload) {
+        await logUploadDebugPayload({
+          req,
+          file,
+          metadataStr,
+          metadataRaw: { parseError: "Invalid metadata JSON" },
+          extension,
+        });
+      }
+
       return NextResponse.json(
         { error: "Invalid metadata JSON" },
         { status: 400 }
       );
+    }
+
+    if (debugUpload) {
+      await logUploadDebugPayload({
+        req,
+        file,
+        metadataStr,
+        metadataRaw,
+        extension,
+      });
     }
 
     const parsedMetadata = metadataSchema.safeParse(metadataRaw);
@@ -299,7 +404,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: metadataSelectionError }, { status: 400 });
     }
 
-    const extension = getExtension(file.name);
     if (!ALLOWED_EXTENSIONS.has(extension)) {
       return NextResponse.json(
         { error: "File type not allowed" },

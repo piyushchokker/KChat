@@ -1,5 +1,34 @@
 import type { DocumentMetadata, UploadedDocument } from "@/types";
 
+const SHOULD_DEBUG_REGISTRAR_UPLOAD =
+  process.env.NEXT_PUBLIC_DEBUG_REGISTRAR_UPLOAD === "true";
+
+function logRegistrarUploadClientPayload(
+  file: File,
+  metadata: DocumentMetadata,
+  metadataJson: string
+) {
+  const payloadPreview = {
+    endpoint: "/api/documents/upload",
+    method: "POST",
+    file: {
+      name: file.name,
+      type: file.type || null,
+      sizeBytes: file.size,
+      lastModified: file.lastModified,
+      lastModifiedIso:
+        file.lastModified > 0 ? new Date(file.lastModified).toISOString() : null,
+    },
+    metadata,
+    metadataJson,
+  };
+
+  console.log(
+    "[Registrar Upload Debug] Client payload:\n" +
+      JSON.stringify(payloadPreview, null, 2)
+  );
+}
+
 /**
  * Upload a document with metadata to Supabase.
  */
@@ -8,11 +37,19 @@ export async function uploadDocument(
   metadata: DocumentMetadata
 ): Promise<UploadedDocument> {
   const formData = new FormData();
+  const metadataJson = JSON.stringify(metadata);
   formData.append("file", file);
-  formData.append("metadata", JSON.stringify(metadata));
+  formData.append("metadata", metadataJson);
+
+  if (SHOULD_DEBUG_REGISTRAR_UPLOAD) {
+    logRegistrarUploadClientPayload(file, metadata, metadataJson);
+  }
 
   const res = await fetch("/api/documents/upload", {
     method: "POST",
+    headers: SHOULD_DEBUG_REGISTRAR_UPLOAD
+      ? { "x-debug-registrar-upload": "1" }
+      : undefined,
     body: formData,
   });
 

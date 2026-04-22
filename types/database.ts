@@ -345,9 +345,250 @@ export type Database = {
           },
         ]
       }
+      raised_tickets: {
+        Row: {
+          answered_at: string | null
+          answered_by: string | null
+          cache_layer: string | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          message_id: string | null
+          metadata: Json
+          query: string
+          raised_at: string
+          resolved_answer: string | null
+          roll_number: string | null
+          status: string
+          student_course: string | null
+          student_email: string | null
+          student_name: string
+          student_school: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          answered_at?: string | null
+          answered_by?: string | null
+          cache_layer?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          metadata?: Json
+          query: string
+          raised_at?: string
+          resolved_answer?: string | null
+          roll_number?: string | null
+          status?: string
+          student_course?: string | null
+          student_email?: string | null
+          student_name: string
+          student_school?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          answered_at?: string | null
+          answered_by?: string | null
+          cache_layer?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          metadata?: Json
+          query?: string
+          raised_at?: string
+          resolved_answer?: string | null
+          roll_number?: string | null
+          status?: string
+          student_course?: string | null
+          student_email?: string | null
+          student_name?: string
+          student_school?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "raised_tickets_answered_by_fkey"
+            columns: ["answered_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "raised_tickets_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "raised_tickets_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "raised_tickets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_profile_cache: {
+        Row: {
+          auth_id: string
+          course: string | null
+          created_at: string
+          department: string | null
+          id: string
+          raw_details: Json
+          roll_number: string
+          school: string | null
+          student_email: string | null
+          student_name: string | null
+          synced_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auth_id: string
+          course?: string | null
+          created_at?: string
+          department?: string | null
+          id?: string
+          raw_details?: Json
+          roll_number: string
+          school?: string | null
+          student_email?: string | null
+          student_name?: string | null
+          synced_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auth_id?: string
+          course?: string | null
+          created_at?: string
+          department?: string | null
+          id?: string
+          raw_details?: Json
+          roll_number?: string
+          school?: string | null
+          student_email?: string | null
+          student_name?: string | null
+          synced_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_profile_cache_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_raised_tickets: {
+        Row: {
+          answered_at: string | null
+          answered_by: string | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          message_id: string | null
+          no_expiry: boolean
+          raised_at: string
+          raised_ticket: string
+          resolved_answer: string | null
+          roll_number: string | null
+          student_course: string | null
+          student_id: string
+          student_name: string
+          updated_at: string
+          valid_from: string | null
+          valid_till: string | null
+        }
+        Insert: {
+          answered_at?: string | null
+          answered_by?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          no_expiry?: boolean
+          raised_at?: string
+          raised_ticket: string
+          resolved_answer?: string | null
+          roll_number?: string | null
+          student_course?: string | null
+          student_id: string
+          student_name: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_till?: string | null
+        }
+        Update: {
+          answered_at?: string | null
+          answered_by?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          no_expiry?: boolean
+          raised_at?: string
+          raised_ticket?: string
+          resolved_answer?: string | null
+          roll_number?: string | null
+          student_course?: string | null
+          student_id?: string
+          student_name?: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_till?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_raised_tickets_answered_by_fkey"
+            columns: ["answered_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_raised_tickets_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_raised_tickets_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_raised_tickets_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           auth_id: string
+          course: string | null
           created_at: string
           department: string | null
           designation: string | null
@@ -359,10 +600,12 @@ export type Database = {
           program: string | null
           role: string
           roll_number: string | null
+          school: string | null
           updated_at: string
         }
         Insert: {
           auth_id: string
+          course?: string | null
           created_at?: string
           department?: string | null
           designation?: string | null
@@ -374,10 +617,12 @@ export type Database = {
           program?: string | null
           role: string
           roll_number?: string | null
+          school?: string | null
           updated_at?: string
         }
         Update: {
           auth_id?: string
+          course?: string | null
           created_at?: string
           department?: string | null
           designation?: string | null
@@ -389,6 +634,7 @@ export type Database = {
           program?: string | null
           role?: string
           roll_number?: string | null
+          school?: string | null
           updated_at?: string
         }
         Relationships: []

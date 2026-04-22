@@ -18,6 +18,13 @@ interface ChatState {
   retSessionId: string | null;
   lastRagUsed: boolean | null;
   lastRagRouterDecision: "true" | "false" | "none" | null;
+  lastCacheHit: boolean | null;
+  lastCacheLayer: "direct" | "validated" | "miss" | null;
+  lastCacheScore: number | null;
+  lastTicketRaised: boolean;
+  lastRaisedTicketId: string | null;
+  ticketRaisedAt: number | null;
+  currentStatusMessage: string | null;
   isLoading: boolean;
   error: string | null;
 
@@ -38,6 +45,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   retSessionId: null,
   lastRagUsed: null,
   lastRagRouterDecision: null,
+  lastCacheHit: null,
+  lastCacheLayer: null,
+  lastCacheScore: null,
+  lastTicketRaised: false,
+  lastRaisedTicketId: null,
+  ticketRaisedAt: null,
+  currentStatusMessage: null,
   isLoading: false,
   error: null,
 
@@ -53,6 +67,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         messages: [],
         lastRagUsed: null,
         lastRagRouterDecision: null,
+        lastCacheHit: null,
+        lastCacheLayer: null,
+        lastCacheScore: null,
+        lastTicketRaised: false,
+        lastRaisedTicketId: null,
+        ticketRaisedAt: null,
+        currentStatusMessage: null,
         error: null,
       });
       return;
@@ -130,6 +151,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: [...state.messages, userMessage, assistantPlaceholder],
       lastRagUsed: null,
       lastRagRouterDecision: null,
+      lastCacheHit: null,
+      lastCacheLayer: null,
+      lastCacheScore: null,
+      lastTicketRaised: false,
+      lastRaisedTicketId: null,
+      ticketRaisedAt: null,
+      currentStatusMessage: null,
       isLoading: true,
       error: null,
     }));
@@ -159,6 +187,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           },
           onDelta: (delta) => {
             set((state) => ({
+              currentStatusMessage: null, // Clear status when real text streams
               messages: state.messages.map((m) =>
                 m.id === assistantMessageId
                   ? { ...m, content: m.content + delta }
@@ -166,11 +195,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
               ),
             }));
           },
+          onStatus: (statusMsg) => {
+            set({ currentStatusMessage: statusMsg });
+          },
           onDone: (done) => {
+            const raisedAt = done.ticketRaised === true ? Date.now() : null;
+
             set((state) => ({
               retSessionId: done.sessionId ?? state.retSessionId,
               lastRagUsed: done.ragUsed ?? null,
               lastRagRouterDecision: done.ragRouterDecision ?? null,
+              lastCacheHit: done.cacheHit ?? null,
+              lastCacheLayer: done.cacheLayer ?? null,
+              lastCacheScore: done.cacheScore ?? null,
+              lastTicketRaised: done.ticketRaised === true,
+              lastRaisedTicketId: done.ticketId ?? null,
+              ticketRaisedAt: raisedAt,
               messages: state.messages.map((m) =>
                 m.id === assistantMessageId
                   ? {
@@ -181,8 +221,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
                     }
                   : m
               ),
+              currentStatusMessage: null,
               isLoading: false,
             }));
+
+            if (raisedAt !== null) {
+              window.setTimeout(() => {
+                set((state) => {
+                  if (state.ticketRaisedAt !== raisedAt) {
+                    return state;
+                  }
+
+                  return {
+                    lastTicketRaised: false,
+                    lastRaisedTicketId: null,
+                    ticketRaisedAt: null,
+                  };
+                });
+              }, 5500);
+            }
           },
         }
       );
@@ -220,6 +277,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       activeConversationId: conversationId,
       lastRagUsed: null,
       lastRagRouterDecision: null,
+      lastTicketRaised: false,
+      lastRaisedTicketId: null,
+      ticketRaisedAt: null,
       isLoading: true,
       error: null,
     });
@@ -245,6 +305,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       activeConversationId: null,
       lastRagUsed: null,
       lastRagRouterDecision: null,
+      lastCacheHit: null,
+      lastCacheLayer: null,
+      lastCacheScore: null,
+      lastTicketRaised: false,
+      lastRaisedTicketId: null,
+      ticketRaisedAt: null,
+      currentStatusMessage: null,
       error: null,
     });
   },
@@ -269,6 +336,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       activeConversationId: null,
       lastRagUsed: null,
       lastRagRouterDecision: null,
+      lastCacheHit: null,
+      lastCacheLayer: null,
+      lastCacheScore: null,
+      lastTicketRaised: false,
+      lastRaisedTicketId: null,
+      ticketRaisedAt: null,
+      currentStatusMessage: null,
       error: null,
     }),
 }));

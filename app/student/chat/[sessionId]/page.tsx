@@ -1,5 +1,10 @@
 import { createServerClient, createAdminClient } from "@/lib/supabase-server";
 import { verifyStudentAccess } from "@/lib/student-auth";
+import {
+  extractRollNumberFromEmail,
+  resolveStudentDetailsByEmail,
+  upsertStudentProfileCache,
+} from "@/lib/student-details-sync";
 import { redirect } from "next/navigation";
 import StudentLayout from "@/components/layout/student-layout";
 import ChatContainer from "@/components/chatbot/chat-container";
@@ -56,7 +61,7 @@ export default async function StudentChatSessionPage(
   const rawName = meta.given_name || meta.name || meta.full_name || email;
   const name = rawName.replace(/\d+/g, "").trim();
   // Roll number = part before "@" in the email (e.g. 2501940081@krmu.edu.in).
-  const rollNumber = email.includes("@") ? email.split("@")[0] : null;
+  const rollNumber = extractRollNumberFromEmail(email);
   let imageUrl: string | undefined;
   let isBanned = false;
 
@@ -65,7 +70,7 @@ export default async function StudentChatSessionPage(
 
     const { data: existingByAuth } = await admin
       .from("users")
-      .select("id, auth_id, role, is_allowed, image_url, roll_number")
+      .select("id, auth_id, role, is_allowed, image_url, roll_number, course, school, program, department")
       .eq("auth_id", authUser.id)
       .maybeSingle();
 
@@ -73,7 +78,7 @@ export default async function StudentChatSessionPage(
     if (!existingUser && email) {
       const { data: existingByEmail } = await admin
         .from("users")
-        .select("id, auth_id, role, is_allowed, image_url, roll_number")
+        .select("id, auth_id, role, is_allowed, image_url, roll_number, course, school, program, department")
         .ilike("email", email)
         .maybeSingle();
       existingUser = existingByEmail;
@@ -83,20 +88,42 @@ export default async function StudentChatSessionPage(
       isBanned = true;
     }
 
-    const nextRollNumber =
-      existingUser?.role === "student"
-        ? rollNumber
-        : (existingUser?.roll_number ?? null);
+    const role = existingUser?.role ?? "student";
+    const isStudent = role === "student";
+
+    const studentDetails = isStudent
+      ? await resolveStudentDetailsByEmail(admin, email, rollNumber)
+      : null;
+
+    const nextRollNumber = isStudent
+      ? studentDetails?.rollNumber ?? rollNumber ?? existingUser?.roll_number ?? null
+      : existingUser?.roll_number ?? null;
+    const nextCourse = isStudent
+      ? studentDetails?.course ?? existingUser?.course ?? existingUser?.program ?? null
+      : existingUser?.course ?? null;
+    const nextSchool = isStudent
+      ? studentDetails?.school ?? existingUser?.school ?? null
+      : existingUser?.school ?? null;
+    const nextDepartment = isStudent
+      ? studentDetails?.department ?? nextSchool ?? existingUser?.department ?? null
+      : existingUser?.department ?? null;
+    const nextProgram = isStudent
+      ? studentDetails?.course ?? existingUser?.program ?? null
+      : existingUser?.program ?? null;
 
     const syncPayload = {
       auth_id: authUser.id,
       email,
-      name,
+      name: studentDetails?.studentName ?? name,
       roll_number: nextRollNumber,
+      course: nextCourse,
+      school: nextSchool,
+      department: nextDepartment,
+      program: nextProgram,
     };
 
     let syncedProfile:
-      | { image_url: string | null; is_allowed: boolean }
+      | { id: string; image_url: string | null; is_allowed: boolean }
       | null = null;
 
     if (existingUser) {
@@ -104,7 +131,7 @@ export default async function StudentChatSessionPage(
         .from("users")
         .update(syncPayload)
         .eq("id", existingUser.id)
-        .select("image_url, is_allowed")
+        .select("id, image_url, is_allowed")
         .single();
 
       if (syncError) {
@@ -117,10 +144,10 @@ export default async function StudentChatSessionPage(
         .from("users")
         .insert({
           ...syncPayload,
-          role: "student",
+          role,
           is_allowed: true,
         })
-        .select("image_url, is_allowed")
+        .select("id, image_url, is_allowed")
         .single();
 
       if (syncError) {
@@ -128,6 +155,19 @@ export default async function StudentChatSessionPage(
       } else {
         syncedProfile = data;
       }
+    }
+
+    const syncedUserId = syncedProfile?.id ?? existingUser?.id;
+
+    if (isStudent && syncedUserId) {
+      await upsertStudentProfileCache(admin, {
+        userId: syncedUserId,
+        authId: authUser.id,
+        fallbackEmail: email,
+        fallbackName: syncPayload.name,
+        details: studentDetails,
+        fallbackRollNumber: nextRollNumber,
+      });
     }
 
     if (syncedProfile?.is_allowed === false) {

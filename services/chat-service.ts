@@ -5,6 +5,11 @@ export interface ChatApiResponse {
   sessionId?: string;
   ragUsed?: boolean;
   ragRouterDecision?: "true" | "false" | "none";
+  cacheHit?: boolean;
+  cacheLayer?: "direct" | "validated" | "miss";
+  cacheScore?: number;
+  ticketRaised?: boolean;
+  ticketId?: string | null;
   userMessage: {
     id: string;
     role: string;
@@ -36,6 +41,11 @@ export interface ChatStreamDone {
   sessionId?: string;
   ragUsed?: boolean;
   ragRouterDecision?: "true" | "false" | "none";
+  cacheHit?: boolean;
+  cacheLayer?: "direct" | "validated" | "miss";
+  cacheScore?: number;
+  ticketRaised?: boolean;
+  ticketId?: string | null;
   assistantMessage: {
     id: string;
     role: string;
@@ -49,6 +59,7 @@ export interface ChatStreamDone {
 export interface SendChatMessageStreamHandlers {
   onMeta?: (meta: ChatStreamMeta) => void;
   onDelta?: (delta: string) => void;
+  onStatus?: (message: string) => void;
   onDone?: (done: ChatStreamDone) => void;
 }
 
@@ -171,6 +182,8 @@ export async function sendChatMessageStream(
     handlers.onDone?.({
       assistantMessage: data.assistantMessage,
       sessionId: data.sessionId,
+      ticketRaised: data.ticketRaised,
+      ticketId: data.ticketId ?? null,
     });
     return;
   }
@@ -200,6 +213,9 @@ export async function sendChatMessageStream(
         if (payload.text) handlers.onDelta?.(payload.text);
       } else if (parsed.event === "meta") {
         handlers.onMeta?.(JSON.parse(parsed.data) as ChatStreamMeta);
+      } else if (parsed.event === "status") {
+        const payload = JSON.parse(parsed.data) as { message?: string };
+        if (payload.message) handlers.onStatus?.(payload.message);
       } else if (parsed.event === "done") {
         handlers.onDone?.(JSON.parse(parsed.data) as ChatStreamDone);
       } else if (parsed.event === "error") {

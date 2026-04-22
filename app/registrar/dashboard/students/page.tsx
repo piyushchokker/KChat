@@ -2,6 +2,7 @@ import { createAdminClient, createServerClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
 import RegistrarLayout from "@/components/layout/registrar-layout";
 import StudentManagement from "@/components/forms/student-management";
+import StudentQueryPanel from "@/components/forms/student-query-panel";
 import LoadingLinkButton from "@/components/common/loading-link-button";
 
 export default async function RegistrarStudentsPage() {
@@ -57,24 +58,37 @@ export default async function RegistrarStudentsPage() {
       }}
     >
       <div className="flex-1 p-6 sm:p-8">
-        <div className="mx-auto max-w-6xl rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Student Management</h1>
-              <p className="mt-1 text-sm text-gray-500">
-                View and edit student records from the users table
-              </p>
+        <div className="mx-auto max-w-6xl space-y-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Student Management</h1>
+                <p className="mt-1 text-sm text-gray-500">
+                  View and edit student records from the users table
+                </p>
+              </div>
+              <LoadingLinkButton
+                href="/registrar/dashboard"
+                variant="secondary"
+                className="h-10 border border-gray-300 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Back to Dashboard
+              </LoadingLinkButton>
             </div>
-            <LoadingLinkButton
-              href="/registrar/dashboard"
-              variant="secondary"
-              className="h-10 border border-gray-300 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-            >
-              Back to Dashboard
-            </LoadingLinkButton>
+
+            <StudentManagement />
           </div>
 
-          <StudentManagement />
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Student Query Panel</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Review auto-raised student queries and publish registrar answers with expiry controls.
+              </p>
+            </div>
+
+            <StudentQueryPanel />
+          </div>
         </div>
       </div>
     </RegistrarLayout>

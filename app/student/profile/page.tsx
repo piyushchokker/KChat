@@ -9,6 +9,8 @@ type StudentProfileRow = {
   email: string;
   role: string;
   roll_number: string | null;
+  course: string | null;
+  school: string | null;
   department: string | null;
   program: string | null;
   designation: string | null;
@@ -84,7 +86,7 @@ export default async function StudentProfilePage() {
     const { data: byAuthId } = await admin
       .from("users")
       .select(
-        "id, name, email, role, roll_number, department, program, designation, image_url, is_allowed, created_at"
+        "id, name, email, role, roll_number, course, school, department, program, designation, image_url, is_allowed, created_at"
       )
       .eq("auth_id", authUser.id)
       .maybeSingle<StudentProfileRow>();
@@ -95,7 +97,7 @@ export default async function StudentProfilePage() {
       const { data: byEmail } = await admin
         .from("users")
         .select(
-          "id, name, email, role, roll_number, department, program, designation, image_url, is_allowed, created_at"
+          "id, name, email, role, roll_number, course, school, department, program, designation, image_url, is_allowed, created_at"
         )
         .ilike("email", email)
         .maybeSingle<StudentProfileRow>();
@@ -119,7 +121,7 @@ export default async function StudentProfilePage() {
           roll_number: fallbackRollNumber,
         })
         .select(
-          "id, name, email, role, roll_number, department, program, designation, image_url, is_allowed, created_at"
+          "id, name, email, role, roll_number, course, school, department, program, designation, image_url, is_allowed, created_at"
         )
         .single<StudentProfileRow>();
 
@@ -172,6 +174,18 @@ export default async function StudentProfilePage() {
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Roll Number</p>
               <p className="mt-1 text-sm font-medium text-gray-900 dark:text-zinc-100">
                 {toDisplayValue(profile?.roll_number ?? fallbackRollNumber)}
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Course</p>
+              <p className="mt-1 text-sm font-medium text-gray-900 dark:text-zinc-100">
+                {toDisplayValue(profile?.course ?? profile?.program)}
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">School</p>
+              <p className="mt-1 text-sm font-medium text-gray-900 dark:text-zinc-100">
+                {toDisplayValue(profile?.school)}
               </p>
             </div>
             <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">

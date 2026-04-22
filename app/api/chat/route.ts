@@ -16,6 +16,8 @@ const DEFAULT_BACKEND_RETRIES = 2;
 const DEFAULT_RETRY_BASE_DELAY_MS = 400;
 const DEFAULT_CIRCUIT_FAILURE_THRESHOLD = 5;
 const DEFAULT_CIRCUIT_OPEN_MS = 30_000;
+const FALLBACK_TICKET_MESSAGE =
+  "I could not find a reliable answer right now. I have raised your query to the registrar team and they will respond soon.";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -26,7 +28,86 @@ type StreamedAiResponse = {
   sessionId?: string;
   ragUsed?: boolean;
   ragRouterDecision?: "true" | "false" | "none";
+  cacheHit?: boolean;
+  cacheLayer?: "direct" | "validated" | "miss";
+  cacheScore?: number;
 };
+
+type ResolvedAppUser = {
+  id: string;
+  name: string;
+  email: string | null;
+  roll_number: string | null;
+  course: string | null;
+  school: string | null;
+  department: string | null;
+  program: string | null;
+};
+
+function shouldRaiseStudentTicket(response: StreamedAiResponse): boolean {
+  return response.cacheLayer === "miss";
+}
+
+async function raiseStudentTicket(
+  admin: ReturnType<typeof createAdminClient>,
+  params: {
+    student: ResolvedAppUser;
+    conversationId: string;
+    messageId: string;
+    raisedTicket: string;
+    cacheLayer: "direct" | "validated" | "miss" | null;
+  }
+) {
+  const { student, conversationId, messageId, raisedTicket, cacheLayer } = params;
+  const nowIso = new Date().toISOString();
+
+  const { data: raisedTicketRow, error: raisedTicketError } = await admin
+    .from("raised_tickets")
+    .insert({
+      user_id: student.id,
+      conversation_id: conversationId,
+      message_id: messageId,
+      student_name: student.name,
+      student_email: student.email,
+      roll_number: student.roll_number,
+      student_course: student.course ?? student.program,
+      student_school: student.school,
+      query: raisedTicket,
+      cache_layer: cacheLayer,
+      status: "pending",
+      metadata: {
+        department: student.department,
+        program: student.program,
+      },
+      raised_at: nowIso,
+    })
+    .select("id")
+    .single();
+
+  if (raisedTicketError) {
+    console.error("Failed to raise ticket in raised_tickets:", raisedTicketError.message);
+  }
+
+  const { error: mirrorError } = await admin.from("student_raised_tickets").insert({
+    student_id: student.id,
+    conversation_id: conversationId,
+    message_id: messageId,
+    student_name: student.name,
+    roll_number: student.roll_number,
+    student_course: student.course ?? student.program,
+    raised_ticket: raisedTicket,
+    no_expiry: false,
+  });
+
+  if (mirrorError) {
+    console.error("Failed to mirror ticket into student_raised_tickets:", mirrorError.message);
+  }
+
+  return {
+    id: raisedTicketRow?.id ?? null,
+    raised: !raisedTicketError || !mirrorError,
+  };
+}
 
 function getPositiveIntEnv(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -88,6 +169,31 @@ function parseRagRouterDecisionHeader(
   return undefined;
 }
 
+function parseCacheHitHeader(value: string | null): boolean | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  return undefined;
+}
+
+function parseCacheLayerHeader(
+  value: string | null
+): "direct" | "validated" | "miss" | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "direct" || normalized === "validated" || normalized === "miss") {
+    return normalized;
+  }
+  return undefined;
+}
+
+function parseCacheScoreHeader(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const parsed = parseFloat(value.trim());
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 async function waitMs(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -96,7 +202,17 @@ async function fetchWithRetry(
   backendUrl: string,
   query: string,
   accessToken: string,
-  sessionId?: string
+  sessionId?: string,
+  studentContext?: {
+    user_id: string;
+    name: string;
+    email: string | null;
+    roll_number: string | null;
+    course: string | null;
+    school: string | null;
+    department: string | null;
+    program: string | null;
+  }
 ): Promise<Response> {
   const timeoutMs = getPositiveIntEnv(
     "CHAT_BACKEND_TIMEOUT_MS",
@@ -125,14 +241,11 @@ async function fetchWithRetry(
           Authorization: `Bearer ${accessToken}`,
           "ngrok-skip-browser-warning": "true",
         },
-        body: JSON.stringify(
-          sessionId
-            ? {
-                query,
-                session_id: sessionId,
-              }
-            : { query }
-        ),
+        body: JSON.stringify({
+          query,
+          ...(sessionId ? { session_id: sessionId } : {}),
+          ...(studentContext ? { student_context: studentContext } : {}),
+        }),
         signal: controller.signal,
       });
 
@@ -249,12 +362,38 @@ export async function POST(req: Request) {
   // Get internal user
   const { data: user } = await admin
     .from("users")
-    .select("id")
+    .select("id, name, email, roll_number, course, school, department, program")
     .eq("auth_id", authUser.id)
     .single();
 
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const appUser: ResolvedAppUser = {
+    id: user.id,
+    name: user.name ?? authUser.user_metadata?.name ?? "Student",
+    email: user.email ?? authUser.email ?? null,
+    roll_number: user.roll_number ?? null,
+    course: user.course ?? user.program ?? null,
+    school: user.school ?? null,
+    department: user.department ?? null,
+    program: user.program ?? user.course ?? null,
+  };
+
+  if ((!appUser.course || !appUser.school) && appUser.roll_number) {
+    const { data: cachedProfile } = await admin
+      .from("student_profile_cache")
+      .select("course, school, department, student_email")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (cachedProfile) {
+      appUser.course = appUser.course ?? cachedProfile.course ?? null;
+      appUser.school = appUser.school ?? cachedProfile.school ?? null;
+      appUser.department = appUser.department ?? cachedProfile.department ?? null;
+      appUser.email = appUser.email ?? cachedProfile.student_email ?? null;
+    }
   }
 
   const body = await req.json();
@@ -461,20 +600,40 @@ export async function POST(req: Request) {
           trimmedQuery,
           accessToken,
           effectiveSessionId,
+          {
+            user_id: appUser.id,
+            name: appUser.name,
+            email: appUser.email,
+            roll_number: appUser.roll_number,
+            course: appUser.course,
+            school: appUser.school,
+            department: appUser.department,
+            program: appUser.program,
+          },
           (delta) => {
             enqueue("delta", { text: delta });
           },
+          (statusMsg) => {
+            enqueue("status", { message: statusMsg });
+          },
           resilience
         );
+
+        const shouldRaiseTicket = shouldRaiseStudentTicket(aiResponse);
+        const assistantContent = shouldRaiseTicket
+          ? FALLBACK_TICKET_MESSAGE
+          : aiResponse.answer;
+        const assistantConfidence = shouldRaiseTicket ? 0 : aiResponse.confidence;
+        const assistantSources = shouldRaiseTicket ? [] : aiResponse.sources;
 
         const { data: assistantMsg, error: assistantMsgError } = await admin
           .from("messages")
           .insert({
             conversation_id: activeConversationId,
             role: "assistant",
-            content: aiResponse.answer,
-            sources: aiResponse.sources,
-            confidence: aiResponse.confidence,
+            content: assistantContent,
+            sources: assistantSources,
+            confidence: assistantConfidence,
           })
           .select()
           .single();
@@ -482,6 +641,18 @@ export async function POST(req: Request) {
         if (assistantMsgError || !assistantMsg) {
           enqueue("error", { message: "Failed to save response" });
           return;
+        }
+
+        let raisedTicketInfo: { id: string | null; raised: boolean } | null = null;
+
+        if (shouldRaiseTicket) {
+          raisedTicketInfo = await raiseStudentTicket(admin, {
+            student: appUser,
+            conversationId: activeConversationId,
+            messageId: assistantMsg.id,
+            raisedTicket: trimmedQuery,
+            cacheLayer: aiResponse.cacheLayer ?? null,
+          });
         }
 
         const normalizedResponseSessionId =
@@ -502,6 +673,11 @@ export async function POST(req: Request) {
           sessionId: persistedSessionId,
           ragUsed: aiResponse.ragUsed,
           ragRouterDecision: aiResponse.ragRouterDecision,
+          cacheHit: aiResponse.cacheHit,
+          cacheLayer: aiResponse.cacheLayer,
+          cacheScore: aiResponse.cacheScore,
+          ticketRaised: shouldRaiseTicket && (raisedTicketInfo?.raised ?? false),
+          ticketId: raisedTicketInfo?.id ?? null,
           assistantMessage: {
             id: assistantMsg.id,
             role: assistantMsg.role,
@@ -604,7 +780,20 @@ async function streamPythonBackend(
   query: string,
   accessToken: string,
   sessionId: string | undefined,
+  studentContext:
+    | {
+        user_id: string;
+        name: string;
+        email: string | null;
+        roll_number: string | null;
+        course: string | null;
+        school: string | null;
+        department: string | null;
+        program: string | null;
+      }
+    | undefined,
   onDelta: (delta: string) => void,
+  onStatus: (message: string) => void,
   resilience: ChatResilienceManager
 ): Promise<StreamedAiResponse> {
   const backendUrl = process.env.PYTHON_BACKEND_URL;
@@ -629,12 +818,21 @@ async function streamPythonBackend(
   }
 
   try {
-    const res = await fetchWithRetry(backendUrl, query, accessToken, sessionId);
+    const res = await fetchWithRetry(
+      backendUrl,
+      query,
+      accessToken,
+      sessionId,
+      studentContext
+    );
     const resolvedSessionId = res.headers.get("x-session-id") ?? sessionId;
     const ragUsed = parseRagUsedHeader(res.headers.get("x-rag-used"));
     const ragRouterDecision = parseRagRouterDecisionHeader(
       res.headers.get("x-rag-router-decision")
     );
+    let cacheHit = parseCacheHitHeader(res.headers.get("x-cache-hit"));
+    let cacheLayer = parseCacheLayerHeader(res.headers.get("x-cache-layer"));
+    let cacheScore = parseCacheScoreHeader(res.headers.get("x-cache-score"));
 
     const contentType = res.headers.get("content-type") ?? "";
 
@@ -650,6 +848,9 @@ async function streamPythonBackend(
         sessionId: resolvedSessionId,
         ragUsed,
         ragRouterDecision,
+        cacheHit,
+        cacheLayer,
+        cacheScore,
       };
     }
 
@@ -704,6 +905,26 @@ async function streamPythonBackend(
             }
             confidence = normalized.confidence;
             sources = normalized.sources;
+
+            // Extract cache info from Layer 2 done events
+            if (parsed && typeof parsed === "object") {
+              const doneObj = parsed as Record<string, unknown>;
+              const doneCacheLayer = parseCacheLayerHeader(String(doneObj.cache_layer ?? ""));
+              if (doneCacheLayer) cacheLayer = doneCacheLayer;
+              const doneCacheScore = typeof doneObj.cache_score === "number" ? doneObj.cache_score : undefined;
+              if (doneCacheScore !== undefined) cacheScore = doneCacheScore;
+              if (doneCacheLayer === "validated") cacheHit = true;
+            }
+            continue;
+          }
+
+          if (event === "status") {
+            if (parsed && typeof parsed === "object") {
+              const statusMsg = (parsed as Record<string, unknown>).message;
+              if (typeof statusMsg === "string") {
+                onStatus(statusMsg);
+              }
+            }
             continue;
           }
 
@@ -740,6 +961,9 @@ async function streamPythonBackend(
       sessionId: resolvedSessionId,
       ragUsed,
       ragRouterDecision,
+      cacheHit,
+      cacheLayer,
+      cacheScore,
     };
   } catch (err) {
     const threshold = getPositiveIntEnv(

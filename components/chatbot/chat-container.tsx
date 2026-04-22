@@ -28,8 +28,10 @@ export default function ChatContainer({
     initializeRetSession,
     loadRetSessionHistory,
     loadConversation,
-    lastRagUsed,
-    lastRagRouterDecision,
+    lastTicketRaised,
+    lastRaisedTicketId,
+    ticketRaisedAt,
+    currentStatusMessage,
   } = useChatStore();
   const { syncWithSupabase, isSynced } = useAuthStore();
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -98,9 +100,6 @@ export default function ChatContainer({
   const visibleMessages = messages.filter(
     (m) => !(m.role === "assistant" && m.content.trim().length === 0)
   );
-  const showRoutingStatus =
-    !isReadOnlyHistory &&
-    (lastRagRouterDecision !== null || lastRagUsed !== null);
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
@@ -159,13 +158,14 @@ export default function ChatContainer({
             ))}
 
             {showThinking && (
-              <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-zinc-500">
-                <div className="flex gap-1">
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:0ms]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:150ms]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:300ms]" />
-                </div>
-                Searching...
+              <div className="flex w-fit items-center gap-3 rounded-2xl bg-white px-5 py-3 text-sm text-gray-500 shadow-sm ring-1 ring-gray-100 dark:bg-[#1f1f1f] dark:text-zinc-400 dark:ring-zinc-800/50">
+                {currentStatusMessage ? (
+                  <span className="animate-pulse font-medium text-blue-600/80 dark:text-blue-400/80">
+                    {currentStatusMessage}
+                  </span>
+                ) : (
+                  <span>Thinking...</span>
+                )}
               </div>
             )}
             <div ref={bottomRef} />
@@ -176,10 +176,26 @@ export default function ChatContainer({
       {!isReadOnlyHistory ? (
         <div className="relative z-10 px-4 py-4 sm:px-8">
           <div className="mx-auto max-w-4xl">
-            {showRoutingStatus ? (
-              <p className="mb-2 text-xs text-gray-500 dark:text-zinc-400">
-                Router: {lastRagRouterDecision ?? "unknown"} | RAG used: {lastRagUsed === null ? "unknown" : String(lastRagUsed)}
-              </p>
+            {/* Badges removed as per user request */}
+          {lastTicketRaised ? (
+              <div
+              key={ticketRaisedAt ?? undefined}
+                className="ticket-raised-toast mb-2 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-100 px-4 py-3 text-sm text-amber-900 shadow-sm"
+                role="status"
+                aria-live="polite"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="ticket-raised-dot" aria-hidden />
+                  <span className="font-medium">
+                    Ticket has been raised to the registrar office.
+                  </span>
+                  {lastRaisedTicketId ? (
+                    <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-800">
+                      Ref {lastRaisedTicketId.slice(0, 8)}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
             ) : null}
             {error ? <p className="mb-2 text-xs text-red-600">{error}</p> : null}
             <ChatInput ref={chatInputRef} onSend={handleSend} disabled={inputDisabled} />

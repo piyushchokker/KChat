@@ -11,6 +11,8 @@ export interface StudentUser {
   email: string;
   role: "student";
   roll_number?: string;
+  course?: string;
+  school?: string;
   program?: string;
   department?: string;
 }

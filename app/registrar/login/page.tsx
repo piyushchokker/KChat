@@ -1,6 +1,5 @@
 "use client";
 
-
 import { useState } from "react";
 import { createBrowserClient } from "@/lib/supabase";
 import Button from "@/components/common/button";
@@ -9,7 +8,6 @@ type ProfileResponse = {
   role?: string;
   is_allowed?: boolean;
 };
-
 
 export default function RegistrarLoginPage() {
   const [email, setEmail] = useState("");
@@ -21,11 +19,13 @@ export default function RegistrarLoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
+
     const supabase = createBrowserClient();
     const { error: loginError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+
     if (loginError) {
       setError(loginError.message || "Login failed");
       setLoading(false);
@@ -78,33 +78,37 @@ export default function RegistrarLoginPage() {
         <h3 className="mt-6 text-xl font-bold text-gray-900">Registrar Login</h3>
         <form className="mt-8 space-y-4" onSubmit={handleLogin}>
           <div className="text-left">
-            <label htmlFor="email" className="block mb-1 font-medium text-gray-700">Email:</label>
+            <label htmlFor="email" className="mb-1 block font-medium text-gray-700">
+              Email:
+            </label>
             <input
               id="email"
               type="email"
               className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Email"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
           <div className="text-left">
-            <label htmlFor="password" className="block mb-1 font-medium text-gray-700">Password:</label>
+            <label htmlFor="password" className="mb-1 block font-medium text-gray-700">
+              Password:
+            </label>
             <input
               id="password"
               type="password"
               className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
               required
             />
           </div>
-          {error && <div className="text-red-600 text-sm mt-2">{error}</div>}
+          {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
           <Button
             type="submit"
-            className="w-full rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1a1a1a] cursor-pointer transition-colors"
+            className="w-full cursor-pointer rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#1a1a1a]"
             isLoading={loading}
           >
             {loading ? "Logging in..." : "Login"}

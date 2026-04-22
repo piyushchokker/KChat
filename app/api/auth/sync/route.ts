@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { createServerClient, createAdminClient } from "@/lib/supabase-server";
+import {
+  extractRollNumberFromEmail,
+  resolveStudentDetailsByEmail,
+  upsertStudentProfileCache,
+} from "@/lib/student-details-sync";
 
 const DEFAULT_TRUSTED_DOMAINS = ["krmangalam.edu.in", "krmu.edu.in"];
 
@@ -21,6 +26,11 @@ type ExistingUser = {
   auth_id: string;
   role: string;
   is_allowed: boolean;
+  roll_number: string | null;
+  course: string | null;
+  school: string | null;
+  program: string | null;
+  department: string | null;
 };
 
 function isSameOriginMutation(req: Request): boolean {
@@ -83,13 +93,13 @@ export async function POST(req: Request) {
   const rawName = meta.given_name || meta.name || meta.full_name || email;
   const name = rawName.replace(/\d+/g, "").trim();
   // Roll number = part before "@" in the email (e.g. 2501940081@krmu.edu.in)
-  const rollNumber = email.includes("@") ? email.split("@")[0] : null;
+  const rollNumber = extractRollNumberFromEmail(email);
 
   // Server-side mapping from users table: preserve existing approved role and access.
   // Check auth_id first so a synced registrar cannot be downgraded by email mismatch/casing issues.
   const { data: existingByAuth } = await admin
     .from("users")
-    .select("id, auth_id, role, is_allowed")
+    .select("id, auth_id, role, is_allowed, roll_number, course, school, program, department")
     .eq("auth_id", user.id)
     .maybeSingle();
 
@@ -97,7 +107,7 @@ export async function POST(req: Request) {
   if (!existingUser) {
     const { data: existingByEmail } = await admin
       .from("users")
-      .select("id, auth_id, role, is_allowed")
+      .select("id, auth_id, role, is_allowed, roll_number, course, school, program, department")
       .ilike("email", email)
       .maybeSingle();
     existingUser = existingByEmail;
@@ -112,14 +122,39 @@ export async function POST(req: Request) {
 
   const role = existingUser?.role ?? "student";
   const isAllowed = existingUser?.is_allowed ?? true;
+  const isStudent = role === "student";
+
+  const studentDetails = isStudent
+    ? await resolveStudentDetailsByEmail(admin, email, rollNumber)
+    : null;
+
+  const resolvedRollNumber = isStudent
+    ? studentDetails?.rollNumber ?? rollNumber ?? existingUser?.roll_number ?? null
+    : existingUser?.roll_number ?? null;
+  const resolvedCourse = isStudent
+    ? studentDetails?.course ?? existingUser?.course ?? existingUser?.program ?? null
+    : existingUser?.course ?? null;
+  const resolvedSchool = isStudent
+    ? studentDetails?.school ?? existingUser?.school ?? null
+    : existingUser?.school ?? null;
+  const resolvedDepartment = isStudent
+    ? studentDetails?.department ?? resolvedSchool ?? existingUser?.department ?? null
+    : existingUser?.department ?? null;
+  const resolvedProgram = isStudent
+    ? studentDetails?.course ?? existingUser?.program ?? null
+    : existingUser?.program ?? null;
 
   const userPayload = {
     auth_id: user.id,
     email,
-    name,
+    name: studentDetails?.studentName ?? name,
     role,
     is_allowed: isAllowed,
-    roll_number: role === "student" ? rollNumber : null,
+    roll_number: resolvedRollNumber,
+    course: resolvedCourse,
+    school: resolvedSchool,
+    department: resolvedDepartment,
+    program: resolvedProgram,
     image_url: meta.avatar_url ?? null,
   };
 
@@ -135,6 +170,17 @@ export async function POST(req: Request) {
       { error: "Failed to sync user" },
       { status: 500 }
     );
+  }
+
+  if (isStudent) {
+    await upsertStudentProfileCache(admin, {
+      userId: data.id,
+      authId: user.id,
+      fallbackEmail: email,
+      fallbackName: userPayload.name,
+      details: studentDetails,
+      fallbackRollNumber: resolvedRollNumber,
+    });
   }
 
   return NextResponse.json(data);

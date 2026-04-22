@@ -1,8 +1,7 @@
 "use client";
 
-
 import { createBrowserClient } from "@/lib/supabase";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Button from "@/components/common/button";
 
@@ -12,8 +11,30 @@ function waitForNextPaint(): Promise<void> {
   });
 }
 
-
 export default function StudentLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-2xl">
+            <h2 className="text-lg font-bold tracking-wide text-gray-900">
+              K.R. MANGALAM
+            </h2>
+            <p className="mt-1 text-xs font-semibold text-red-600">UNIVERSITY</p>
+            <h3 className="mt-6 text-xl font-bold text-gray-900">Student Login</h3>
+            <p className="mt-2 text-sm text-gray-500">
+              Use your university Microsoft account to continue
+            </p>
+          </div>
+        </div>
+      }
+    >
+      <StudentLoginInner />
+    </Suspense>
+  );
+}
+
+function StudentLoginInner() {
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
   const errorCode = searchParams.get("error");

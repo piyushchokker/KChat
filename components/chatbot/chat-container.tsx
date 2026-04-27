@@ -103,6 +103,50 @@ export default function ChatContainer({
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
+      {lastTicketRaised ? (
+        <div
+          key={ticketRaisedAt ?? undefined}
+          className="pointer-events-none absolute left-1/2 top-4 z-30 flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 justify-center px-4"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="w-full rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-200 via-orange-200 to-amber-300 px-5 py-4 text-amber-950 shadow-2xl shadow-amber-200/50 ring-1 ring-white/40 backdrop-blur-sm">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/70 text-amber-700 shadow-sm">
+                <svg
+                  className="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
+                  />
+                </svg>
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-800/90">
+                  Raised Ticket
+                </p>
+                <p className="mt-1 text-sm font-medium text-amber-950">
+                  Ticket has been raised to the registrar office.
+                </p>
+                {lastRaisedTicketId ? (
+                  <span className="mt-2 inline-flex rounded-full bg-amber-100/90 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-amber-900">
+                    Ref {lastRaisedTicketId.slice(0, 8)}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Background image */}
       <div className="pointer-events-none absolute inset-0 z-0">
         <Image
@@ -176,27 +220,6 @@ export default function ChatContainer({
       {!isReadOnlyHistory ? (
         <div className="relative z-10 px-4 py-4 sm:px-8">
           <div className="mx-auto max-w-4xl">
-            {/* Badges removed as per user request */}
-          {lastTicketRaised ? (
-              <div
-              key={ticketRaisedAt ?? undefined}
-                className="ticket-raised-toast mb-2 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-100 px-4 py-3 text-sm text-amber-900 shadow-sm"
-                role="status"
-                aria-live="polite"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="ticket-raised-dot" aria-hidden />
-                  <span className="font-medium">
-                    Ticket has been raised to the registrar office.
-                  </span>
-                  {lastRaisedTicketId ? (
-                    <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-800">
-                      Ref {lastRaisedTicketId.slice(0, 8)}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
             {error ? <p className="mb-2 text-xs text-red-600">{error}</p> : null}
             <ChatInput ref={chatInputRef} onSend={handleSend} disabled={inputDisabled} />
           </div>

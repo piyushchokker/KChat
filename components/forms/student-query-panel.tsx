@@ -3,27 +3,24 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Button from "@/components/common/button";
 
-type RaisedTicket = {
+type Ticket = {
   id: string;
-  student_id: string;
+  query: string;
+  status: string;
+  priority: string;
+  category: string | null;
+  confidence_score: number | null;
+  conversation_id: string | null;
+  user_id: string;
+  assigned_to: string | null;
+  created_at: string;
+  updated_at: string;
+  resolved_at: string | null;
   student_name: string;
+  student_email: string;
   roll_number: string | null;
   student_course: string | null;
-  raised_ticket: string;
-  raised_at: string;
-  resolved_answer: string | null;
-  answered_at: string | null;
-  valid_from: string | null;
-  valid_till: string | null;
-  no_expiry: boolean;
-  conversation_id: string | null;
-};
-
-type TicketAnswerForm = {
-  answer: string;
-  valid_from: string;
-  valid_till: string;
-  no_expiry: boolean;
+  student_school: string | null;
 };
 
 function getErrorMessage(err: unknown): string {
@@ -31,20 +28,6 @@ function getErrorMessage(err: unknown): string {
     return err.message;
   }
   return "Something went wrong";
-}
-
-function toLocalDateTimeInputValue(date: Date): string {
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16);
-}
-
-function fromIsoToLocalInputValue(iso: string | null): string {
-  if (!iso) return "";
-  const parsed = new Date(iso);
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
-  return toLocalDateTimeInputValue(parsed);
 }
 
 function formatDateTime(iso: string | null): string {
@@ -56,27 +39,56 @@ function formatDateTime(iso: string | null): string {
   return parsed.toLocaleString();
 }
 
-function createDefaultForm(ticket: RaisedTicket): TicketAnswerForm {
-  const now = new Date();
-  const defaultTill = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+function statusBadge(status: string) {
+  switch (status) {
+    case "open":
+      return "bg-red-100 text-red-800";
+    case "in_progress":
+      return "bg-yellow-100 text-yellow-800";
+    case "resolved":
+      return "bg-green-100 text-green-800";
+    case "closed":
+      return "bg-gray-100 text-gray-800";
+    default:
+      return "bg-gray-100 text-gray-800";
+  }
+}
 
-  return {
-    answer: ticket.resolved_answer ?? "",
-    valid_from: fromIsoToLocalInputValue(ticket.valid_from) || toLocalDateTimeInputValue(now),
-    valid_till:
-      fromIsoToLocalInputValue(ticket.valid_till) ||
-      toLocalDateTimeInputValue(defaultTill),
-    no_expiry: ticket.no_expiry,
-  };
+function statusLabel(status: string) {
+  switch (status) {
+    case "open":
+      return "Open";
+    case "in_progress":
+      return "In Progress";
+    case "resolved":
+      return "Resolved";
+    case "closed":
+      return "Closed";
+    default:
+      return status;
+  }
+}
+
+function priorityBadge(priority: string) {
+  switch (priority) {
+    case "high":
+      return "bg-red-50 text-red-700 border border-red-200";
+    case "medium":
+      return "bg-yellow-50 text-yellow-700 border border-yellow-200";
+    case "low":
+      return "bg-green-50 text-green-700 border border-green-200";
+    default:
+      return "bg-gray-50 text-gray-700 border border-gray-200";
+  }
 }
 
 export default function StudentQueryPanel() {
-  const [tickets, setTickets] = useState<RaisedTicket[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [editingTicketId, setEditingTicketId] = useState<string | null>(null);
-  const [answerForm, setAnswerForm] = useState<TicketAnswerForm | null>(null);
+  const [answerText, setAnswerText] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -94,13 +106,13 @@ export default function StudentQueryPanel() {
       if (!res.ok) {
         const payload = (await res
           .json()
-          .catch(() => ({ error: "Failed to load student tickets" }))) as {
+          .catch(() => ({ error: "Failed to load tickets" }))) as {
           error?: string;
         };
-        throw new Error(payload.error || "Failed to load student tickets");
+        throw new Error(payload.error || "Failed to load tickets");
       }
 
-      const payload = (await res.json()) as { tickets?: RaisedTicket[] };
+      const payload = (await res.json()) as { tickets?: Ticket[] };
       setTickets(payload.tickets ?? []);
     } catch (err: unknown) {
       setError(getErrorMessage(err));
@@ -118,45 +130,40 @@ export default function StudentQueryPanel() {
     const copy = [...tickets];
 
     copy.sort((a, b) => {
-      const aPending = a.resolved_answer ? 1 : 0;
-      const bPending = b.resolved_answer ? 1 : 0;
+      const aResolved = a.status === "resolved" || a.status === "closed" ? 1 : 0;
+      const bResolved = b.status === "resolved" || b.status === "closed" ? 1 : 0;
 
-      if (aPending !== bPending) {
-        return aPending - bPending;
+      if (aResolved !== bResolved) {
+        return aResolved - bResolved;
       }
 
-      return Date.parse(b.raised_at) - Date.parse(a.raised_at);
+      return Date.parse(b.created_at) - Date.parse(a.created_at);
     });
 
     return copy;
   }, [tickets]);
 
-  const startAnswer = (ticket: RaisedTicket) => {
+  const startAnswer = (ticket: Ticket) => {
     setError("");
     setSuccess("");
     setEditingTicketId(ticket.id);
-    setAnswerForm(createDefaultForm(ticket));
+    setAnswerText("");
   };
 
   const cancelAnswer = () => {
     setEditingTicketId(null);
-    setAnswerForm(null);
+    setAnswerText("");
   };
 
   const submitAnswer = async () => {
-    if (!editingTicketId || !answerForm || submittingId) {
+    if (!editingTicketId || submittingId) {
       return;
     }
 
-    const trimmedAnswer = answerForm.answer.trim();
+    const trimmedAnswer = answerText.trim();
 
     if (!trimmedAnswer) {
       setError("Answer is required");
-      return;
-    }
-
-    if (!answerForm.no_expiry && (!answerForm.valid_from || !answerForm.valid_till)) {
-      setError("valid_from and valid_till are required unless no_expiry is enabled");
       return;
     }
 
@@ -170,9 +177,6 @@ export default function StudentQueryPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           answer: trimmedAnswer,
-          valid_from: answerForm.no_expiry ? null : answerForm.valid_from,
-          valid_till: answerForm.no_expiry ? null : answerForm.valid_till,
-          no_expiry: answerForm.no_expiry,
         }),
       });
 
@@ -185,9 +189,9 @@ export default function StudentQueryPanel() {
         throw new Error(payload.error || "Failed to submit answer");
       }
 
-      setSuccess("Ticket answered successfully.");
+      setSuccess("Ticket resolved successfully.");
       setEditingTicketId(null);
-      setAnswerForm(null);
+      setAnswerText("");
       await loadTickets(true);
     } catch (err: unknown) {
       setError(getErrorMessage(err));
@@ -204,7 +208,7 @@ export default function StudentQueryPanel() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
         <p className="text-sm text-gray-600">
-          Pending queries: {tickets.filter((ticket) => !ticket.resolved_answer).length}
+          Pending queries: {tickets.filter((t) => t.status === "open" || t.status === "in_progress").length}
         </p>
         <Button
           type="button"
@@ -227,8 +231,9 @@ export default function StudentQueryPanel() {
         </div>
       ) : (
         orderedTickets.map((ticket) => {
-          const isPending = !ticket.resolved_answer;
-          const isEditing = editingTicketId === ticket.id && answerForm;
+          const isPending = ticket.status === "open" || ticket.status === "in_progress";
+          const isResolved = ticket.status === "resolved" || ticket.status === "closed";
+          const isEditing = editingTicketId === ticket.id;
 
           return (
             <div
@@ -237,51 +242,62 @@ export default function StudentQueryPanel() {
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900">{ticket.student_name}</h3>
+                  <h3 className="text-base font-semibold text-gray-900">
+                    {ticket.student_name}
+                  </h3>
                   <p className="text-sm text-gray-600">
                     Roll: {ticket.roll_number || "-"} | Course: {ticket.student_course || "-"}
                   </p>
+                  {ticket.student_school ? (
+                    <p className="text-xs text-gray-500">School: {ticket.student_school}</p>
+                  ) : null}
                   <p className="text-xs text-gray-500">
-                    Raised at: {formatDateTime(ticket.raised_at)}
+                    Raised at: {formatDateTime(ticket.created_at)}
                   </p>
                 </div>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                    isPending
-                      ? "bg-amber-100 text-amber-700"
-                      : "bg-green-100 text-green-700"
-                  }`}
-                >
-                  {isPending ? "Pending" : "Answered"}
-                </span>
+                <div className="flex gap-2">
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(ticket.status)}`}
+                  >
+                    {statusLabel(ticket.status)}
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityBadge(ticket.priority)}`}
+                  >
+                    {ticket.priority}
+                  </span>
+                </div>
               </div>
 
               <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                  Raised Query
+                  Student Query
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-blue-900">
-                  {ticket.raised_ticket}
+                  {ticket.query}
                 </p>
               </div>
 
-              {!isPending ? (
+              {isResolved && ticket.resolved_at ? (
                 <div className="mt-3 rounded-lg border border-green-100 bg-green-50 p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-green-700">
-                    Registrar Answer
+                    Resolved
                   </p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-green-900">
-                    {ticket.resolved_answer}
+                  <p className="mt-1 text-xs text-green-800">
+                    Resolved at: {formatDateTime(ticket.resolved_at)}
                   </p>
-                  <p className="mt-2 text-xs text-green-800">
-                    Answered at: {formatDateTime(ticket.answered_at)}
-                  </p>
-                  <p className="text-xs text-green-800">
-                    Validity: {ticket.no_expiry
-                      ? "No expiry"
-                      : `${formatDateTime(ticket.valid_from)} to ${formatDateTime(ticket.valid_till)}`}
-                  </p>
+                  {ticket.assigned_to ? (
+                    <p className="text-xs text-green-800">
+                      Handled by registrar
+                    </p>
+                  ) : null}
                 </div>
+              ) : null}
+
+              {ticket.category ? (
+                <p className="mt-2 text-xs text-gray-500">
+                  Category: {ticket.category}
+                </p>
               ) : null}
 
               {isPending ? (
@@ -289,69 +305,15 @@ export default function StudentQueryPanel() {
                   {isEditing ? (
                     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">
-                        Answer
+                        Your Answer
                       </label>
                       <textarea
-                        value={answerForm.answer}
-                        onChange={(event) =>
-                          setAnswerForm((prev) =>
-                            prev ? { ...prev, answer: event.target.value } : prev
-                          )
-                        }
+                        value={answerText}
+                        onChange={(event) => setAnswerText(event.target.value)}
                         rows={4}
                         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                        placeholder="Write a clear response for the student"
+                        placeholder="Write a clear response for the student's query"
                       />
-
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">
-                            valid_from
-                          </label>
-                          <input
-                            type="datetime-local"
-                            value={answerForm.valid_from}
-                            onChange={(event) =>
-                              setAnswerForm((prev) =>
-                                prev ? { ...prev, valid_from: event.target.value } : prev
-                              )
-                            }
-                            disabled={answerForm.no_expiry}
-                            className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm text-gray-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">
-                            valid_till
-                          </label>
-                          <input
-                            type="datetime-local"
-                            value={answerForm.valid_till}
-                            onChange={(event) =>
-                              setAnswerForm((prev) =>
-                                prev ? { ...prev, valid_till: event.target.value } : prev
-                              )
-                            }
-                            disabled={answerForm.no_expiry}
-                            className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm text-gray-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100"
-                          />
-                        </div>
-                      </div>
-
-                      <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                          type="checkbox"
-                          checked={answerForm.no_expiry}
-                          onChange={(event) =>
-                            setAnswerForm((prev) =>
-                              prev ? { ...prev, no_expiry: event.target.checked } : prev
-                            )
-                          }
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                        no_expiry
-                      </label>
 
                       <div className="mt-4 flex flex-wrap gap-2">
                         <Button

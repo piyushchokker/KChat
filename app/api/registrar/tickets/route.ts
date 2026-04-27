@@ -35,23 +35,11 @@ async function resolveAuthorizedRegistrar(authId: string, email: string) {
   return { admin, registrar };
 }
 
-async function cleanupExpiredAnsweredTickets(admin: ReturnType<typeof createAdminClient>) {
-  const nowIso = new Date().toISOString();
-
-  await admin
-    .from("student_raised_tickets")
-    .delete()
-    .eq("no_expiry", false)
-    .not("answered_at", "is", null)
-    .not("valid_till", "is", null)
-    .lt("valid_till", nowIso);
-}
-
 /**
  * GET /api/registrar/tickets
  *
- * Registrar-only endpoint to list raised student tickets.
- * Expired answered tickets are automatically deleted.
+ * Registrar-only endpoint to list all tickets raised by students.
+ * Joins with users table for student details.
  */
 export async function GET() {
   const supabase = await createServerClient();
@@ -73,22 +61,44 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await cleanupExpiredAnsweredTickets(admin);
-
   const { data, error } = await admin
-    .from("student_raised_tickets")
+    .from("tickets")
     .select(
-      "id, student_id, student_name, roll_number, student_course, raised_ticket, raised_at, resolved_answer, answered_at, valid_from, valid_till, no_expiry, conversation_id"
+      "id, query, status, priority, category, confidence_score, conversation_id, user_id, assigned_to, created_at, updated_at, resolved_at, users!tickets_user_id_fkey(name, email, roll_number, course, school)"
     )
-    .order("raised_at", { ascending: false });
+    .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Failed to fetch raised tickets:", error);
+    console.error("Failed to fetch tickets:", error);
     return NextResponse.json(
-      { error: "Failed to fetch raised tickets" },
+      { error: "Failed to fetch tickets" },
       { status: 500 }
     );
   }
 
-  return NextResponse.json({ tickets: data ?? [] });
+  // Transform the data to flatten user info
+  const tickets = (data ?? []).map((ticket) => {
+    const user = ticket.users as { name: string; email: string; roll_number: string | null; course: string | null; school: string | null } | null;
+    return {
+      id: ticket.id,
+      query: ticket.query,
+      status: ticket.status,
+      priority: ticket.priority,
+      category: ticket.category,
+      confidence_score: ticket.confidence_score,
+      conversation_id: ticket.conversation_id,
+      user_id: ticket.user_id,
+      assigned_to: ticket.assigned_to,
+      created_at: ticket.created_at,
+      updated_at: ticket.updated_at,
+      resolved_at: ticket.resolved_at,
+      student_name: user?.name ?? "Unknown",
+      student_email: user?.email ?? "",
+      roll_number: user?.roll_number ?? null,
+      student_course: user?.course ?? null,
+      student_school: user?.school ?? null,
+    };
+  });
+
+  return NextResponse.json({ tickets });
 }

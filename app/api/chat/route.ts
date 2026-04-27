@@ -16,8 +16,10 @@ const DEFAULT_BACKEND_RETRIES = 2;
 const DEFAULT_RETRY_BASE_DELAY_MS = 400;
 const DEFAULT_CIRCUIT_FAILURE_THRESHOLD = 5;
 const DEFAULT_CIRCUIT_OPEN_MS = 30_000;
+const DEFAULT_TICKET_MISS_MESSAGE =
+  "The knowledge base is currently offline, but I couldn't find the answer in my cache. I have created a support ticket with your student details. Our team will look into it!";
 const FALLBACK_TICKET_MESSAGE =
-  "I could not find a reliable answer right now. I have raised your query to the registrar team and they will respond soon.";
+  process.env.TICKET_MISS_MESSAGE?.trim() || DEFAULT_TICKET_MISS_MESSAGE;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -29,8 +31,11 @@ type StreamedAiResponse = {
   ragUsed?: boolean;
   ragRouterDecision?: "true" | "false" | "none";
   cacheHit?: boolean;
-  cacheLayer?: "direct" | "validated" | "miss";
+  cacheLayer?: "direct" | "validated" | "miss" | "knowledge_base";
   cacheScore?: number;
+  canAnswer?: boolean;
+  ticketRaised?: boolean;
+  ticketId?: string | null;
 };
 
 type ResolvedAppUser = {
@@ -45,7 +50,10 @@ type ResolvedAppUser = {
 };
 
 function shouldRaiseStudentTicket(response: StreamedAiResponse): boolean {
-  return response.cacheLayer === "miss";
+  return (
+    (response.cacheLayer === "miss" || response.canAnswer === false) &&
+    response.ticketRaised !== true
+  );
 }
 
 async function raiseStudentTicket(
@@ -55,57 +63,118 @@ async function raiseStudentTicket(
     conversationId: string;
     messageId: string;
     raisedTicket: string;
-    cacheLayer: "direct" | "validated" | "miss" | null;
+    cacheLayer: "direct" | "validated" | "miss" | "knowledge_base" | null;
   }
 ) {
   const { student, conversationId, messageId, raisedTicket, cacheLayer } = params;
   const nowIso = new Date().toISOString();
+  const normalizedQuery = raisedTicket.trim();
 
-  const { data: raisedTicketRow, error: raisedTicketError } = await admin
-    .from("raised_tickets")
+  if (!normalizedQuery) {
+    return {
+      id: null,
+      raised: false,
+    };
+  }
+
+  const adminUntyped = admin as unknown as {
+    from: (table: string) => {
+      select: (...args: unknown[]) => any;
+      insert: (...args: unknown[]) => any;
+      eq: (...args: unknown[]) => any;
+      in: (...args: unknown[]) => any;
+      order: (...args: unknown[]) => any;
+      limit: (...args: unknown[]) => any;
+      maybeSingle: (...args: unknown[]) => any;
+      single: (...args: unknown[]) => any;
+      is: (...args: unknown[]) => any;
+    };
+  };
+
+  // Idempotency guard: avoid creating duplicate open tickets for same query in same conversation.
+  const { data: existingOpenTicket } = await adminUntyped
+    .from("tickets")
+    .select("id")
+    .eq("user_id", student.id)
+    .eq("conversation_id", conversationId)
+    .eq("query", normalizedQuery)
+    .in("status", ["open", "in_progress"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingOpenTicket?.id) {
+    return {
+      id: existingOpenTicket.id as string,
+      raised: true,
+    };
+  }
+
+  let productionTicketId: string | null = null;
+
+  const { data: productionTicketRow, error: productionTicketError } = await adminUntyped
+    .from("tickets")
     .insert({
-      user_id: student.id,
       conversation_id: conversationId,
-      message_id: messageId,
-      student_name: student.name,
-      student_email: student.email,
-      roll_number: student.roll_number,
-      student_course: student.course ?? student.program,
-      student_school: student.school,
-      query: raisedTicket,
-      cache_layer: cacheLayer,
-      status: "pending",
-      metadata: {
-        department: student.department,
-        program: student.program,
-      },
-      raised_at: nowIso,
+      user_id: student.id,
+      query: normalizedQuery,
+      status: "open",
+      priority: "medium",
+      category: "chatbot_miss",
+      confidence_score: 0,
+      created_at: nowIso,
+      updated_at: nowIso,
     })
     .select("id")
     .single();
 
-  if (raisedTicketError) {
-    console.error("Failed to raise ticket in raised_tickets:", raisedTicketError.message);
+  if (productionTicketError) {
+    console.error("Failed to raise ticket in tickets:", productionTicketError.message);
+  } else {
+    productionTicketId = (productionTicketRow?.id as string | undefined) ?? null;
   }
 
-  const { error: mirrorError } = await admin.from("student_raised_tickets").insert({
-    student_id: student.id,
-    conversation_id: conversationId,
-    message_id: messageId,
-    student_name: student.name,
-    roll_number: student.roll_number,
-    student_course: student.course ?? student.program,
-    raised_ticket: raisedTicket,
-    no_expiry: false,
-  });
+  if (productionTicketId) {
+    const { error: ticketMessageError } = await adminUntyped.from("ticket_messages").insert({
+      ticket_id: productionTicketId,
+      sender_id: student.id,
+      sender_type: "student",
+      message: normalizedQuery,
+      created_at: nowIso,
+    });
 
-  if (mirrorError) {
-    console.error("Failed to mirror ticket into student_raised_tickets:", mirrorError.message);
+    if (ticketMessageError) {
+      console.error("Failed to insert ticket_messages row:", ticketMessageError.message);
+    }
+
+    const { error: ticketEventError } = await adminUntyped.from("ticket_events").insert({
+      ticket_id: productionTicketId,
+      event_type: "created",
+      actor_id: student.id,
+      metadata: {
+        source: "kchat-api",
+        cache_layer: cacheLayer,
+        conversation_id: conversationId,
+        message_id: messageId,
+        student_name: student.name,
+        student_email: student.email,
+        roll_number: student.roll_number,
+        student_course: student.course ?? student.program,
+        student_school: student.school,
+        department: student.department,
+        program: student.program,
+      },
+      created_at: nowIso,
+    });
+
+    if (ticketEventError) {
+      console.error("Failed to insert ticket_events row:", ticketEventError.message);
+    }
   }
 
   return {
-    id: raisedTicketRow?.id ?? null,
-    raised: !raisedTicketError || !mirrorError,
+    id: productionTicketId ?? null,
+    raised: Boolean(productionTicketId),
   };
 }
 
@@ -179,10 +248,15 @@ function parseCacheHitHeader(value: string | null): boolean | undefined {
 
 function parseCacheLayerHeader(
   value: string | null
-): "direct" | "validated" | "miss" | undefined {
+): "direct" | "validated" | "miss" | "knowledge_base" | undefined {
   if (!value) return undefined;
   const normalized = value.trim().toLowerCase();
-  if (normalized === "direct" || normalized === "validated" || normalized === "miss") {
+  if (
+    normalized === "direct" ||
+    normalized === "validated" ||
+    normalized === "miss" ||
+    normalized === "knowledge_base"
+  ) {
     return normalized;
   }
   return undefined;
@@ -620,9 +694,10 @@ export async function POST(req: Request) {
         );
 
         const shouldRaiseTicket = shouldRaiseStudentTicket(aiResponse);
+        const normalizedAnswer = aiResponse.answer.trim();
         const assistantContent = shouldRaiseTicket
-          ? FALLBACK_TICKET_MESSAGE
-          : aiResponse.answer;
+          ? normalizedAnswer || FALLBACK_TICKET_MESSAGE
+          : normalizedAnswer;
         const assistantConfidence = shouldRaiseTicket ? 0 : aiResponse.confidence;
         const assistantSources = shouldRaiseTicket ? [] : aiResponse.sources;
 
@@ -655,6 +730,11 @@ export async function POST(req: Request) {
           });
         }
 
+        const finalTicketRaised =
+          aiResponse.ticketRaised === true ||
+          (shouldRaiseTicket && (raisedTicketInfo?.raised ?? false));
+        const finalTicketId = aiResponse.ticketId ?? raisedTicketInfo?.id ?? null;
+
         const normalizedResponseSessionId =
           typeof aiResponse.sessionId === "string" && aiResponse.sessionId.trim().length > 0
             ? aiResponse.sessionId.trim().toLowerCase()
@@ -676,8 +756,8 @@ export async function POST(req: Request) {
           cacheHit: aiResponse.cacheHit,
           cacheLayer: aiResponse.cacheLayer,
           cacheScore: aiResponse.cacheScore,
-          ticketRaised: shouldRaiseTicket && (raisedTicketInfo?.raised ?? false),
-          ticketId: raisedTicketInfo?.id ?? null,
+          ticketRaised: finalTicketRaised,
+          ticketId: finalTicketId,
           assistantMessage: {
             id: assistantMsg.id,
             role: assistantMsg.role,
@@ -766,7 +846,15 @@ function normalizeFinalPayload(payload: unknown): StreamedAiResponse {
     const confidence =
       typeof obj.confidence === "number" ? obj.confidence : 0.9;
     const sources = Array.isArray(obj.sources) ? (obj.sources as Json[]) : [];
-    return { answer, confidence, sources };
+    const canAnswer = typeof obj.can_answer === "boolean" ? obj.can_answer : undefined;
+    const ticketRaised = typeof obj.ticket_raised === "boolean" ? obj.ticket_raised : undefined;
+    const ticketId =
+      typeof obj.ticket_id === "string"
+        ? obj.ticket_id
+        : obj.ticket_id === null
+          ? null
+          : undefined;
+    return { answer, confidence, sources, canAnswer, ticketRaised, ticketId };
   }
 
   return {
@@ -833,6 +921,9 @@ async function streamPythonBackend(
     let cacheHit = parseCacheHitHeader(res.headers.get("x-cache-hit"));
     let cacheLayer = parseCacheLayerHeader(res.headers.get("x-cache-layer"));
     let cacheScore = parseCacheScoreHeader(res.headers.get("x-cache-score"));
+    let canAnswer: boolean | undefined;
+    let ticketRaised: boolean | undefined;
+    let ticketId: string | null | undefined;
 
     const contentType = res.headers.get("content-type") ?? "";
 
@@ -851,6 +942,9 @@ async function streamPythonBackend(
         cacheHit,
         cacheLayer,
         cacheScore,
+        canAnswer,
+        ticketRaised,
+        ticketId,
       };
     }
 
@@ -873,11 +967,11 @@ async function streamPythonBackend(
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const blocks = buffer.split("\n\n");
+        const blocks = buffer.split(/\r?\n\r?\n/);
         buffer = blocks.pop() ?? "";
 
         for (const block of blocks) {
-          const lines = block.split("\n");
+          const lines = block.split(/\r?\n/);
           let event = "message";
           const dataLines: string[] = [];
 
@@ -896,6 +990,8 @@ async function streamPythonBackend(
           const raw = dataLines.join("\n");
           if (raw === "[DONE]") continue;
 
+          console.log("[Next.js SSE DEBUG] Event:", event, "Raw:", raw);
+
           const parsed = safeJsonParse(raw);
 
           if (event === "done" || event === "final" || event === "complete") {
@@ -913,7 +1009,20 @@ async function streamPythonBackend(
               if (doneCacheLayer) cacheLayer = doneCacheLayer;
               const doneCacheScore = typeof doneObj.cache_score === "number" ? doneObj.cache_score : undefined;
               if (doneCacheScore !== undefined) cacheScore = doneCacheScore;
-              if (doneCacheLayer === "validated") cacheHit = true;
+              if (typeof doneObj.can_answer === "boolean") {
+                canAnswer = doneObj.can_answer;
+              }
+              if (doneObj.ticket_raised === true) {
+                ticketRaised = true;
+              } else if (doneObj.ticket_raised === false) {
+                ticketRaised = false;
+              }
+              if (typeof doneObj.ticket_id === "string") {
+                ticketId = doneObj.ticket_id;
+              } else if (doneObj.ticket_id === null) {
+                ticketId = null;
+              }
+              if (doneCacheLayer === "validated" || doneCacheLayer === "knowledge_base") cacheHit = true;
             }
             continue;
           }
@@ -964,6 +1073,9 @@ async function streamPythonBackend(
       cacheHit,
       cacheLayer,
       cacheScore,
+      canAnswer,
+      ticketRaised,
+      ticketId,
     };
   } catch (err) {
     const threshold = getPositiveIntEnv(

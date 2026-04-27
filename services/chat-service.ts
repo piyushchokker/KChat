@@ -6,7 +6,7 @@ export interface ChatApiResponse {
   ragUsed?: boolean;
   ragRouterDecision?: "true" | "false" | "none";
   cacheHit?: boolean;
-  cacheLayer?: "direct" | "validated" | "miss";
+  cacheLayer?: "direct" | "validated" | "miss" | "knowledge_base";
   cacheScore?: number;
   ticketRaised?: boolean;
   ticketId?: string | null;
@@ -42,7 +42,7 @@ export interface ChatStreamDone {
   ragUsed?: boolean;
   ragRouterDecision?: "true" | "false" | "none";
   cacheHit?: boolean;
-  cacheLayer?: "direct" | "validated" | "miss";
+  cacheLayer?: "direct" | "validated" | "miss" | "knowledge_base";
   cacheScore?: number;
   ticketRaised?: boolean;
   ticketId?: string | null;

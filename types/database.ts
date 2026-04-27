@@ -345,94 +345,182 @@ export type Database = {
           },
         ]
       }
-      raised_tickets: {
+      resolved_knowledge: {
         Row: {
-          answered_at: string | null
-          answered_by: string | null
-          cache_layer: string | null
-          conversation_id: string | null
+          answer: string
           created_at: string
           id: string
-          message_id: string | null
-          metadata: Json
-          query: string
-          raised_at: string
-          resolved_answer: string | null
-          roll_number: string | null
-          status: string
-          student_course: string | null
-          student_email: string | null
-          student_name: string
-          student_school: string | null
-          updated_at: string
-          user_id: string | null
+          question: string
+          ticket_id: string
         }
         Insert: {
-          answered_at?: string | null
-          answered_by?: string | null
-          cache_layer?: string | null
-          conversation_id?: string | null
+          answer: string
           created_at?: string
           id?: string
-          message_id?: string | null
-          metadata?: Json
-          query: string
-          raised_at?: string
-          resolved_answer?: string | null
-          roll_number?: string | null
-          status?: string
-          student_course?: string | null
-          student_email?: string | null
-          student_name: string
-          student_school?: string | null
-          updated_at?: string
-          user_id?: string | null
+          question: string
+          ticket_id: string
         }
         Update: {
-          answered_at?: string | null
-          answered_by?: string | null
-          cache_layer?: string | null
-          conversation_id?: string | null
+          answer?: string
           created_at?: string
           id?: string
-          message_id?: string | null
-          metadata?: Json
-          query?: string
-          raised_at?: string
-          resolved_answer?: string | null
-          roll_number?: string | null
-          status?: string
-          student_course?: string | null
-          student_email?: string | null
-          student_name?: string
-          student_school?: string | null
-          updated_at?: string
-          user_id?: string | null
+          question?: string
+          ticket_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "raised_tickets_answered_by_fkey"
-            columns: ["answered_by"]
+            foreignKeyName: "resolved_knowledge_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json
+          ticket_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json
+          ticket_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_events_actor_id_fkey"
+            columns: ["actor_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "raised_tickets_conversation_id_fkey"
+            foreignKeyName: "ticket_events_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_messages: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          sender_id: string | null
+          sender_type: string
+          ticket_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          sender_id?: string | null
+          sender_type: string
+          ticket_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          sender_id?: string | null
+          sender_type?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tickets: {
+        Row: {
+          assigned_to: string | null
+          category: string | null
+          confidence_score: number | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          priority: string
+          query: string
+          resolved_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          category?: string | null
+          confidence_score?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          priority?: string
+          query: string
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          category?: string | null
+          confidence_score?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          priority?: string
+          query?: string
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "raised_tickets_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "messages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "raised_tickets_user_id_fkey"
+            foreignKeyName: "tickets_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -496,95 +584,7 @@ export type Database = {
           },
         ]
       }
-      student_raised_tickets: {
-        Row: {
-          answered_at: string | null
-          answered_by: string | null
-          conversation_id: string | null
-          created_at: string
-          id: string
-          message_id: string | null
-          no_expiry: boolean
-          raised_at: string
-          raised_ticket: string
-          resolved_answer: string | null
-          roll_number: string | null
-          student_course: string | null
-          student_id: string
-          student_name: string
-          updated_at: string
-          valid_from: string | null
-          valid_till: string | null
-        }
-        Insert: {
-          answered_at?: string | null
-          answered_by?: string | null
-          conversation_id?: string | null
-          created_at?: string
-          id?: string
-          message_id?: string | null
-          no_expiry?: boolean
-          raised_at?: string
-          raised_ticket: string
-          resolved_answer?: string | null
-          roll_number?: string | null
-          student_course?: string | null
-          student_id: string
-          student_name: string
-          updated_at?: string
-          valid_from?: string | null
-          valid_till?: string | null
-        }
-        Update: {
-          answered_at?: string | null
-          answered_by?: string | null
-          conversation_id?: string | null
-          created_at?: string
-          id?: string
-          message_id?: string | null
-          no_expiry?: boolean
-          raised_at?: string
-          raised_ticket?: string
-          resolved_answer?: string | null
-          roll_number?: string | null
-          student_course?: string | null
-          student_id?: string
-          student_name?: string
-          updated_at?: string
-          valid_from?: string | null
-          valid_till?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "student_raised_tickets_answered_by_fkey"
-            columns: ["answered_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_raised_tickets_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_raised_tickets_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "messages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_raised_tickets_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+
       users: {
         Row: {
           auth_id: string

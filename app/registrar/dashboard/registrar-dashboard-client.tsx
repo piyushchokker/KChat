@@ -22,13 +22,20 @@ export default function RegistrarDashboardClient({
   return (
     <RegistrarLayout user={user}>
       <div className="flex-1 p-6 sm:p-8">
-        <div className="mx-auto mb-4 flex max-w-6xl justify-end">
+        <div className="mx-auto mb-4 flex max-w-6xl justify-end gap-2">
           <LoadingLinkButton
             href="/registrar/dashboard/students"
             variant="secondary"
             className="h-10 border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
           >
             Manage Students
+          </LoadingLinkButton>
+          <LoadingLinkButton
+            href="/registrar/raised-queries"
+            variant="secondary"
+            className="h-10 border border-blue-800 bg-white px-4 text-sm font-semibold text-blue-800 hover:bg-blue-50"
+          >
+            Raised Queries
           </LoadingLinkButton>
         </div>
         <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2">

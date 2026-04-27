@@ -19,7 +19,7 @@ interface ChatState {
   lastRagUsed: boolean | null;
   lastRagRouterDecision: "true" | "false" | "none" | null;
   lastCacheHit: boolean | null;
-  lastCacheLayer: "direct" | "validated" | "miss" | null;
+  lastCacheLayer: "direct" | "validated" | "miss" | "knowledge_base" | null;
   lastCacheScore: number | null;
   lastTicketRaised: boolean;
   lastRaisedTicketId: string | null;

@@ -200,3 +200,110 @@ export async function PATCH(req: Request, context: RouteContext) {
     },
   });
 }
+
+/**
+ * DELETE /api/registrar/tickets/[id]
+ *
+ * Registrar-only endpoint to delete a ticket and related metadata.
+ */
+export async function DELETE(_: Request, context: RouteContext) {
+  const supabase = await createServerClient();
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+
+  if (!authUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await context.params;
+  if (!id) {
+    return NextResponse.json({ error: "Missing ticket id" }, { status: 400 });
+  }
+
+  const normalizedEmail = (authUser.email ?? "").trim().toLowerCase();
+  const { admin, registrar } = await resolveAuthorizedRegistrar(
+    authUser.id,
+    normalizedEmail
+  );
+
+  if (!registrar) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { data: existingTicket } = await admin
+    .from("tickets")
+    .select("id, query, user_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!existingTicket) {
+    return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
+  }
+
+  // Delete related records first (cascade handles most, but be explicit)
+  const { error: msgError } = await admin
+    .from("ticket_messages")
+    .delete()
+    .eq("ticket_id", id);
+
+  if (msgError) {
+    console.error("Failed to delete ticket_messages:", msgError);
+    return NextResponse.json(
+      { error: "Failed to delete ticket messages" },
+      { status: 500 }
+    );
+  }
+
+  const { error: eventsError } = await admin
+    .from("ticket_events")
+    .delete()
+    .eq("ticket_id", id);
+
+  if (eventsError) {
+    console.error("Failed to delete ticket_events:", eventsError);
+    return NextResponse.json(
+      { error: "Failed to delete ticket events" },
+      { status: 500 }
+    );
+  }
+
+  const { error: knowledgeError } = await admin
+    .from("resolved_knowledge")
+    .delete()
+    .eq("ticket_id", id);
+
+  if (knowledgeError) {
+    console.error("Failed to delete resolved_knowledge:", knowledgeError);
+    return NextResponse.json(
+      { error: "Failed to delete resolved knowledge" },
+      { status: 500 }
+    );
+  }
+
+  const { error: ticketDeleteError } = await admin
+    .from("tickets")
+    .delete()
+    .eq("id", id);
+
+  if (ticketDeleteError) {
+    console.error("Failed to delete ticket:", ticketDeleteError);
+    return NextResponse.json(
+      { error: "Failed to delete ticket" },
+      { status: 500 }
+    );
+  }
+
+  await admin.from("audit_logs").insert({
+    user_id: registrar.id,
+    action: "ticket_deleted",
+    entity_type: "ticket",
+    entity_id: id,
+    metadata: {
+      ticket_user_id: existingTicket.user_id,
+      query: existingTicket.query,
+    },
+  });
+
+  return NextResponse.json({ success: true, id });
+}

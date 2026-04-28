@@ -77,22 +77,8 @@ async function raiseStudentTicket(
     };
   }
 
-  const adminUntyped = admin as unknown as {
-    from: (table: string) => {
-      select: (...args: unknown[]) => any;
-      insert: (...args: unknown[]) => any;
-      eq: (...args: unknown[]) => any;
-      in: (...args: unknown[]) => any;
-      order: (...args: unknown[]) => any;
-      limit: (...args: unknown[]) => any;
-      maybeSingle: (...args: unknown[]) => any;
-      single: (...args: unknown[]) => any;
-      is: (...args: unknown[]) => any;
-    };
-  };
-
   // Idempotency guard: avoid creating duplicate open tickets for same query in same conversation.
-  const { data: existingOpenTicket } = await adminUntyped
+  const { data: existingOpenTicket } = await admin
     .from("tickets")
     .select("id")
     .eq("user_id", student.id)
@@ -112,7 +98,7 @@ async function raiseStudentTicket(
 
   let productionTicketId: string | null = null;
 
-  const { data: productionTicketRow, error: productionTicketError } = await adminUntyped
+  const { data: productionTicketRow, error: productionTicketError } = await admin
     .from("tickets")
     .insert({
       conversation_id: conversationId,
@@ -135,7 +121,7 @@ async function raiseStudentTicket(
   }
 
   if (productionTicketId) {
-    const { error: ticketMessageError } = await adminUntyped.from("ticket_messages").insert({
+    const { error: ticketMessageError } = await admin.from("ticket_messages").insert({
       ticket_id: productionTicketId,
       sender_id: student.id,
       sender_type: "student",
@@ -147,7 +133,7 @@ async function raiseStudentTicket(
       console.error("Failed to insert ticket_messages row:", ticketMessageError.message);
     }
 
-    const { error: ticketEventError } = await adminUntyped.from("ticket_events").insert({
+    const { error: ticketEventError } = await admin.from("ticket_events").insert({
       ticket_id: productionTicketId,
       event_type: "created",
       actor_id: student.id,

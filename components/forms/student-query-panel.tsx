@@ -87,6 +87,7 @@ export default function StudentQueryPanel() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingTicketId, setEditingTicketId] = useState<string | null>(null);
   const [answerText, setAnswerText] = useState("");
   const [error, setError] = useState("");
@@ -200,6 +201,51 @@ export default function StudentQueryPanel() {
     }
   };
 
+  const deleteTicket = async (ticket: Ticket) => {
+    if (deletingId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete this query from ${ticket.student_name}? This cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(ticket.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      const res = await fetch(`/api/registrar/tickets/${ticket.id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const payload = (await res
+          .json()
+          .catch(() => ({ error: "Failed to delete ticket" }))) as {
+          error?: string;
+        };
+        throw new Error(payload.error || "Failed to delete ticket");
+      }
+
+      if (editingTicketId === ticket.id) {
+        setEditingTicketId(null);
+        setAnswerText("");
+      }
+
+      setTickets((prev) => prev.filter((item) => item.id !== ticket.id));
+      setSuccess("Ticket deleted successfully.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (loading) {
     return <div className="text-sm text-gray-500">Loading raised student queries...</div>;
   }
@@ -300,9 +346,9 @@ export default function StudentQueryPanel() {
                 </p>
               ) : null}
 
-              {isPending ? (
-                <div className="mt-3">
-                  {isEditing ? (
+              <div className="mt-3">
+                {isPending ? (
+                  isEditing ? (
                     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                       <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">
                         Your Answer
@@ -333,20 +379,54 @@ export default function StudentQueryPanel() {
                         >
                           Cancel
                         </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          isLoading={deletingId === ticket.id}
+                          onClick={() => deleteTicket(ticket)}
+                          className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                          disabled={submittingId === ticket.id}
+                        >
+                          Delete Query
+                        </Button>
                       </div>
                     </div>
                   ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => startAnswer(ticket)}
-                    >
-                      Answer Query
-                    </Button>
-                  )}
-                </div>
-              ) : null}
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => startAnswer(ticket)}
+                      >
+                        Answer Query
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        isLoading={deletingId === ticket.id}
+                        onClick={() => deleteTicket(ticket)}
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                      >
+                        Delete Query
+                      </Button>
+                    </div>
+                  )
+                ) : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    isLoading={deletingId === ticket.id}
+                    onClick={() => deleteTicket(ticket)}
+                    className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                  >
+                    Delete Query
+                  </Button>
+                )}
+              </div>
             </div>
           );
         })

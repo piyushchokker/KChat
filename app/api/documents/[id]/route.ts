@@ -10,15 +10,6 @@ function normalizeUrl(url: string): string {
 }
 
 function resolveDeleteDocumentEndpoint(): string | null {
-  const explicitEndpoint =
-    process.env.DELETE_DOCUMENT_ENDPOINT?.trim() ||
-    process.env.PYTHON_BACKEND_DELETE_DOCUMENT_URL?.trim() ||
-    process.env.DOCUMENT_DELETE_ENDPOINT?.trim();
-
-  if (explicitEndpoint) {
-    return normalizeUrl(explicitEndpoint);
-  }
-
   const pythonBackendUrl = process.env.PYTHON_BACKEND_URL?.trim();
   if (pythonBackendUrl) {
     try {

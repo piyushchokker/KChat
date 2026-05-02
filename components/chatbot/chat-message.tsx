@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/types";
 
@@ -28,10 +28,14 @@ function fallbackCopyText(value: string): boolean {
   return copied;
 }
 
-export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
+function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
   const resetCopyTimeoutRef = useRef<number | null>(null);
+  const paragraphs = useMemo(
+    () => message.content.split("\n\n"),
+    [message.content]
+  );
 
   useEffect(() => {
     return () => {
@@ -133,7 +137,7 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
 
         {/* Render markdown-like content with line breaks */}
         <div className="space-y-2 whitespace-pre-wrap">
-          {message.content.split("\n\n").map((paragraph, i) => (
+          {paragraphs.map((paragraph, i) => (
             <p key={i}>
               {paragraph.split(/(\*\*.*?\*\*)/).map((part, j) => {
                 if (part.startsWith("**") && part.endsWith("**")) {
@@ -163,3 +167,8 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
     </div>
   );
 }
+
+export default memo(
+  ChatMessageBubble,
+  (prev, next) => prev.message === next.message
+);

@@ -77,6 +77,21 @@ function getStudentDetailTables(): string[] {
   return parsed.length > 0 ? parsed : DEFAULT_STUDENT_DETAIL_TABLES;
 }
 
+function isTransientSupabaseError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("522") ||
+    normalized.includes("timed out") ||
+    normalized.includes("timeout") ||
+    normalized.includes("<!doctype html") ||
+    normalized.includes("<html")
+  );
+}
+
+async function waitMs(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function extractRollNumberFromEmail(email: string): string | null {
   const normalized = email.trim().toLowerCase();
   if (!normalized.includes("@")) {
@@ -186,11 +201,23 @@ export async function upsertStudentProfileCache(
     updated_at: nowIso,
   };
 
-  const { error } = await admin
-    .from("student_profile_cache")
-    .upsert(payload, { onConflict: "user_id" });
+  const maxRetries = 2;
 
-  if (error) {
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    const { error } = await admin
+      .from("student_profile_cache")
+      .upsert(payload, { onConflict: "user_id" });
+
+    if (!error) {
+      return;
+    }
+
+    if (attempt < maxRetries && isTransientSupabaseError(error.message)) {
+      await waitMs(250 * (attempt + 1));
+      continue;
+    }
+
     console.error("Failed to upsert student_profile_cache:", error.message);
+    return;
   }
 }

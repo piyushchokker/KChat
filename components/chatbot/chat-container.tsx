@@ -35,6 +35,7 @@ export default function ChatContainer({
   } = useChatStore();
   const { syncWithSupabase, isSynced } = useAuthStore();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const lastMessageCountRef = useRef(0);
   const chatInputRef = useRef<ChatInputRef>(null);
 
   useEffect(() => {
@@ -66,8 +67,11 @@ export default function ChatContainer({
   }, [isSynced, syncWithSupabase]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+    if (messages.length !== lastMessageCountRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      lastMessageCountRef.current = messages.length;
+    }
+  }, [messages.length]);
 
   // Auto-focus input after AI responds
   useEffect(() => {
@@ -96,9 +100,10 @@ export default function ChatContainer({
   const isEmpty = messages.length === 0;
   const inputDisabled = isLoading || isReadOnlyHistory;
   const latestAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-  const showThinking = isLoading && (!latestAssistant || latestAssistant.content.trim().length === 0);
+  const latestAssistantContent = latestAssistant?.content ?? "";
+  const showThinking = isLoading && (!latestAssistant || latestAssistantContent.trim().length === 0);
   const visibleMessages = messages.filter(
-    (m) => !(m.role === "assistant" && m.content.trim().length === 0)
+    (m) => !(m.role === "assistant" && (m.content ?? "").trim().length === 0)
   );
 
   return (

@@ -870,8 +870,8 @@ async function streamPythonBackend(
   onStatus: (message: string) => void,
   resilience: ChatResilienceManager
 ): Promise<StreamedAiResponse> {
-  const backendUrl = process.env.PYTHON_BACKEND_URL;
-  if (!backendUrl) {
+  const rawBackendUrl = process.env.PYTHON_BACKEND_URL;
+  if (!rawBackendUrl) {
     console.error("[Python Backend Error] PYTHON_BACKEND_URL is not set");
     return {
       answer: "I'm sorry, the knowledge base is not configured. Please contact support.",
@@ -879,6 +879,8 @@ async function streamPythonBackend(
       sources: [],
     };
   }
+
+  const backendUrl = `${rawBackendUrl.replace(/\/+$/, "")}/chat`;
 
   const circuitKey = `python:${backendUrl}`;
   const isCircuitOpen = await resilience.circuitBreaker.isOpen(circuitKey);
@@ -975,8 +977,6 @@ async function streamPythonBackend(
 
           const raw = dataLines.join("\n");
           if (raw === "[DONE]") continue;
-
-          console.log("[Next.js SSE DEBUG] Event:", event, "Raw:", raw);
 
           const parsed = safeJsonParse(raw);
 

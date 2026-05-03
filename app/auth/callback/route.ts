@@ -11,6 +11,35 @@ const ALLOWED_REDIRECT_PREFIXES = [
   "/",
 ];
 
+function resolvePublicOrigin(request: Request): string {
+  const configuredBaseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.APP_URL?.trim();
+
+  if (configuredBaseUrl) {
+    try {
+      return new URL(configuredBaseUrl).origin;
+    } catch {
+      // Ignore invalid config and fall through to request-derived origin.
+    }
+  }
+
+  const requestUrl = new URL(request.url);
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+
+  if (forwardedHost) {
+    const protocol =
+      forwardedProto && (forwardedProto === "http" || forwardedProto === "https")
+        ? forwardedProto
+        : requestUrl.protocol.replace(":", "") || "https";
+    return `${protocol}://${forwardedHost}`;
+  }
+
+  return requestUrl.origin;
+}
+
 function sanitizeNextPath(rawNext: string | null): string {
   if (!rawNext) return DEFAULT_REDIRECT_PATH;
 
@@ -41,7 +70,8 @@ function sanitizeNextPath(rawNext: string | null): string {
  * then redirects.
  */
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  const origin = resolvePublicOrigin(request);
   const code = searchParams.get("code");
   const next = sanitizeNextPath(searchParams.get("next"));
 

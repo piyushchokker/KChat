@@ -360,12 +360,15 @@ export async function POST(req: Request) {
   const resilience = getChatResilienceManager();
   const supabase = await createServerClient();
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const authUser = session?.user;
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
   if (!authUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   const accessToken = session?.access_token;
 
   if (!accessToken) {

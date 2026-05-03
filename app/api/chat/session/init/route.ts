@@ -11,6 +11,35 @@ type SessionInitResult =
   | { ok: true; sessionId: string }
   | { ok: false; reason: SessionInitFailure };
 
+function resolvePublicOrigin(request: Request): string {
+  const configuredBaseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.APP_URL?.trim();
+
+  if (configuredBaseUrl) {
+    try {
+      return new URL(configuredBaseUrl).origin;
+    } catch {
+      // Ignore invalid config and use request-derived origin.
+    }
+  }
+
+  const requestUrl = new URL(request.url);
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+
+  if (forwardedHost) {
+    const protocol =
+      forwardedProto && (forwardedProto === "http" || forwardedProto === "https")
+        ? forwardedProto
+        : requestUrl.protocol.replace(":", "") || "https";
+    return `${protocol}://${forwardedHost}`;
+  }
+
+  return requestUrl.origin;
+}
+
 function getSessionCreateUrl(): string | null {
   const explicit = process.env.PYTHON_BACKEND_SESSION_URL?.trim();
   if (explicit) {
@@ -54,7 +83,8 @@ function extractSessionId(payload: unknown): string | null {
 }
 
 function redirectTo(req: Request, path: string): NextResponse {
-  return NextResponse.redirect(new URL(path, req.url));
+  const origin = resolvePublicOrigin(req);
+  return NextResponse.redirect(new URL(path, origin));
 }
 
 function getFailureRedirectPath(reason: SessionInitFailure): string {

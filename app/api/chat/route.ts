@@ -5,6 +5,7 @@ import {
   getChatResilienceManager,
   type ChatResilienceManager,
 } from "@/lib/chat-resilience";
+import { getBackgroundWorker } from "@/lib/background-worker";
 
 const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_USER_RATE_LIMIT = 40;
@@ -58,6 +59,7 @@ function shouldRaiseStudentTicket(response: StreamedAiResponse): boolean {
 
 async function raiseStudentTicket(
   admin: ReturnType<typeof createAdminClient>,
+  worker: ReturnType<typeof getBackgroundWorker>,
   params: {
     student: ResolvedAppUser;
     conversationId: string;
@@ -121,41 +123,43 @@ async function raiseStudentTicket(
   }
 
   if (productionTicketId) {
-    const { error: ticketMessageError } = await admin.from("ticket_messages").insert({
-      ticket_id: productionTicketId,
-      sender_id: student.id,
-      sender_type: "student",
-      message: normalizedQuery,
-      created_at: nowIso,
+    worker.enqueue("ticket-side-effects", async () => {
+      const { error: ticketMessageError } = await admin.from("ticket_messages").insert({
+        ticket_id: productionTicketId,
+        sender_id: student.id,
+        sender_type: "student",
+        message: normalizedQuery,
+        created_at: nowIso,
+      });
+
+      if (ticketMessageError) {
+        console.error("Failed to insert ticket_messages row:", ticketMessageError.message);
+      }
+
+      const { error: ticketEventError } = await admin.from("ticket_events").insert({
+        ticket_id: productionTicketId,
+        event_type: "created",
+        actor_id: student.id,
+        metadata: {
+          source: "kchat-api",
+          cache_layer: cacheLayer,
+          conversation_id: conversationId,
+          message_id: messageId,
+          student_name: student.name,
+          student_email: student.email,
+          roll_number: student.roll_number,
+          student_course: student.course ?? student.program,
+          student_school: student.school,
+          department: student.department,
+          program: student.program,
+        },
+        created_at: nowIso,
+      });
+
+      if (ticketEventError) {
+        console.error("Failed to insert ticket_events row:", ticketEventError.message);
+      }
     });
-
-    if (ticketMessageError) {
-      console.error("Failed to insert ticket_messages row:", ticketMessageError.message);
-    }
-
-    const { error: ticketEventError } = await admin.from("ticket_events").insert({
-      ticket_id: productionTicketId,
-      event_type: "created",
-      actor_id: student.id,
-      metadata: {
-        source: "kchat-api",
-        cache_layer: cacheLayer,
-        conversation_id: conversationId,
-        message_id: messageId,
-        student_name: student.name,
-        student_email: student.email,
-        roll_number: student.roll_number,
-        student_course: student.course ?? student.program,
-        student_school: student.school,
-        department: student.department,
-        program: student.program,
-      },
-      created_at: nowIso,
-    });
-
-    if (ticketEventError) {
-      console.error("Failed to insert ticket_events row:", ticketEventError.message);
-    }
   }
 
   return {
@@ -350,16 +354,18 @@ async function fetchWithRetry(
  * Body: { query: string, conversationId?: string, sessionId?: string }
  */
 export async function POST(req: Request) {
+  const requestStart = performance.now();
+  const elapsedMs = () => performance.now() - requestStart;
+  const worker = getBackgroundWorker();
   const resilience = getChatResilienceManager();
   const supabase = await createServerClient();
-  const { data: { user: authUser } } = await supabase.auth.getUser();
-  if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const {
     data: { session },
   } = await supabase.auth.getSession();
+  const authUser = session?.user;
+  if (!authUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const accessToken = session?.access_token;
 
   if (!accessToken) {
@@ -383,11 +389,11 @@ export async function POST(req: Request) {
   );
   const clientIp = getClientIp(req);
 
-  const userLimitResult = await resilience.rateLimiter.consume(
-    `user:${authUser.id}`,
-    userLimit,
-    windowMs
-  );
+  const [userLimitResult, ipLimitResult] = await Promise.all([
+    resilience.rateLimiter.consume(`user:${authUser.id}`, userLimit, windowMs),
+    resilience.rateLimiter.consume(`ip:${clientIp}`, ipLimit, windowMs),
+  ]);
+
   if (!userLimitResult.allowed) {
     return NextResponse.json(
       { error: "Too many requests. Please slow down." },
@@ -400,11 +406,6 @@ export async function POST(req: Request) {
     );
   }
 
-  const ipLimitResult = await resilience.rateLimiter.consume(
-    `ip:${clientIp}`,
-    ipLimit,
-    windowMs
-  );
   if (!ipLimitResult.allowed) {
     return NextResponse.json(
       { error: "Too many requests from this network. Please try again later." },
@@ -418,6 +419,17 @@ export async function POST(req: Request) {
   }
 
   const admin = createAdminClient();
+  const body = await req.json();
+  const { query, conversationId, sessionId } = body;
+  const trimmedQuery = typeof query === "string" ? query.trim() : "";
+  const trimmedConversationId =
+    typeof conversationId === "string" && conversationId.trim().length > 0
+      ? conversationId.trim()
+      : undefined;
+  const trimmedSessionId =
+    typeof sessionId === "string" && sessionId.trim().length > 0
+      ? sessionId.trim().toLowerCase()
+      : undefined;
 
   // Get internal user
   const { data: user } = await admin
@@ -430,7 +442,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  const appUser: ResolvedAppUser = {
+  let appUser: ResolvedAppUser = {
     id: user.id,
     name: user.name ?? authUser.user_metadata?.name ?? "Student",
     email: user.email ?? authUser.email ?? null,
@@ -440,33 +452,6 @@ export async function POST(req: Request) {
     department: user.department ?? null,
     program: user.program ?? user.course ?? null,
   };
-
-  if ((!appUser.course || !appUser.school) && appUser.roll_number) {
-    const { data: cachedProfile } = await admin
-      .from("student_profile_cache")
-      .select("course, school, department, student_email")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (cachedProfile) {
-      appUser.course = appUser.course ?? cachedProfile.course ?? null;
-      appUser.school = appUser.school ?? cachedProfile.school ?? null;
-      appUser.department = appUser.department ?? cachedProfile.department ?? null;
-      appUser.email = appUser.email ?? cachedProfile.student_email ?? null;
-    }
-  }
-
-  const body = await req.json();
-  const { query, conversationId, sessionId } = body;
-  const trimmedQuery = typeof query === "string" ? query.trim() : "";
-  const trimmedConversationId =
-    typeof conversationId === "string" && conversationId.trim().length > 0
-      ? conversationId.trim()
-      : undefined;
-  const trimmedSessionId =
-    typeof sessionId === "string" && sessionId.trim().length > 0
-      ? sessionId.trim().toLowerCase()
-      : undefined;
 
   if (!trimmedQuery) {
     return NextResponse.json(
@@ -633,6 +618,7 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+  const preStreamMs = elapsedMs();
 
   const encoder = new TextEncoder();
 
@@ -656,6 +642,9 @@ export async function POST(req: Request) {
       });
 
       (async () => {
+        const backendStart = performance.now();
+        let firstDeltaMs: number | null = null;
+
         const aiResponse = await streamPythonBackend(
           trimmedQuery,
           accessToken,
@@ -671,6 +660,9 @@ export async function POST(req: Request) {
             program: appUser.program,
           },
           (delta) => {
+            if (firstDeltaMs === null) {
+              firstDeltaMs = performance.now() - backendStart;
+            }
             enqueue("delta", { text: delta });
           },
           (statusMsg) => {
@@ -678,6 +670,7 @@ export async function POST(req: Request) {
           },
           resilience
         );
+        const backendStreamMs = performance.now() - backendStart;
 
         const shouldRaiseTicket = shouldRaiseStudentTicket(aiResponse);
         const normalizedAnswer = aiResponse.answer.trim();
@@ -707,7 +700,25 @@ export async function POST(req: Request) {
         let raisedTicketInfo: { id: string | null; raised: boolean } | null = null;
 
         if (shouldRaiseTicket) {
-          raisedTicketInfo = await raiseStudentTicket(admin, {
+          if ((!appUser.course || !appUser.school) && appUser.roll_number) {
+            const { data: cachedProfile } = await admin
+              .from("student_profile_cache")
+              .select("course, school, department, student_email")
+              .eq("user_id", user.id)
+              .maybeSingle();
+
+            if (cachedProfile) {
+              appUser = {
+                ...appUser,
+                course: appUser.course ?? cachedProfile.course ?? null,
+                school: appUser.school ?? cachedProfile.school ?? null,
+                department: appUser.department ?? cachedProfile.department ?? null,
+                email: appUser.email ?? cachedProfile.student_email ?? null,
+              };
+            }
+          }
+
+          raisedTicketInfo = await raiseStudentTicket(admin, worker, {
             student: appUser,
             conversationId: activeConversationId,
             messageId: assistantMsg.id,
@@ -727,13 +738,22 @@ export async function POST(req: Request) {
             : undefined;
         const persistedSessionId = normalizedResponseSessionId ?? effectiveSessionId;
 
-        await admin
-          .from("conversations")
-          .update({
-            updated_at: new Date().toISOString(),
-            ret_session_id: persistedSessionId ?? null,
-          })
-          .eq("id", activeConversationId);
+        worker.enqueue("conversation-touch", async () => {
+          const { error: updateConversationError } = await admin
+            .from("conversations")
+            .update({
+              updated_at: new Date().toISOString(),
+              ret_session_id: persistedSessionId ?? null,
+            })
+            .eq("id", activeConversationId);
+
+          if (updateConversationError) {
+            console.error(
+              "Failed to update conversation metadata:",
+              updateConversationError.message
+            );
+          }
+        });
 
         enqueue("done", {
           sessionId: persistedSessionId,
@@ -744,6 +764,12 @@ export async function POST(req: Request) {
           cacheScore: aiResponse.cacheScore,
           ticketRaised: finalTicketRaised,
           ticketId: finalTicketId,
+          timing: {
+            apiPreStreamMs: preStreamMs,
+            backendStreamMs,
+            firstDeltaMs,
+            totalApiMs: elapsedMs(),
+          },
           assistantMessage: {
             id: assistantMsg.id,
             role: assistantMsg.role,
@@ -752,6 +778,16 @@ export async function POST(req: Request) {
             sources: assistantMsg.sources,
             confidence: assistantMsg.confidence,
           },
+        });
+
+        console.info("[chat timing]", {
+          conversationId: activeConversationId,
+          sessionId: persistedSessionId,
+          apiPreStreamMs: preStreamMs,
+          backendStreamMs,
+          firstDeltaMs,
+          totalApiMs: elapsedMs(),
+          worker: worker.getStats(),
         });
       })()
         .catch((err) => {

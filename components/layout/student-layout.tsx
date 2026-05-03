@@ -299,7 +299,7 @@ export default function StudentLayout({
   const firstName = user?.name?.split(" ")[0] || "Student";
 
   return (
-    <div className="relative flex h-screen flex-col bg-gray-50 dark:bg-zinc-950">
+    <div className="relative flex min-h-screen flex-col bg-gray-50 dark:bg-zinc-950 supports-[height:100dvh]:min-h-[100dvh]">
       <UniversityHeader
         subtitle="Student Assistant"
         leftContent={

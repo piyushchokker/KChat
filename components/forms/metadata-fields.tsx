@@ -11,13 +11,18 @@ interface MetadataFieldsProps {
   metadata: DocumentMetadata;
   onChange: (metadata: DocumentMetadata) => void;
   options: FrontendMetadataOptions;
+  noExpiry?: boolean;
+  onNoExpiryChange?: (value: boolean) => void;
 }
 
 export default function MetadataFields({
   metadata,
   onChange,
   options,
+  noExpiry = false,
+  onNoExpiryChange,
 }: MetadataFieldsProps) {
+  const NO_EXPIRY_VALUE = "NOEXPIRY";
   const selectedSchool = metadata.school ?? "";
   const school = options.schools.find((item) => item.id === selectedSchool);
   const courses = school?.courses ?? [];
@@ -106,7 +111,7 @@ export default function MetadataFields({
 
       {/* Document Type */}
       <SelectDropdown
-        label="Document Type"
+        label="Document Type/Department"
         required
         options={options.documentTypes}
         placeholder="-- Select Type --"
@@ -134,20 +139,47 @@ export default function MetadataFields({
       {/* Removed Directions and Professor Details fields (now only in dropdown) */}
 
       {/* Effective Dates */}
+      <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+        <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-700">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            checked={noExpiry}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              onNoExpiryChange?.(checked);
+              update({
+                effectiveFrom: checked ? NO_EXPIRY_VALUE : "",
+                effectiveTill: checked ? NO_EXPIRY_VALUE : "",
+              });
+            }}
+          />
+          This document does not need validity and is always valid
+        </label>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <DatePicker
           label="Effective From"
-          placeholder="Start date"
-          value={metadata.effectiveFrom}
-          onChange={(value) => update({ effectiveFrom: value })}
+          placeholder={noExpiry ? "NOEXPIRY" : "Start date"}
+          value={noExpiry ? "" : metadata.effectiveFrom}
+          onChange={(value) => {
+            if (noExpiry) return;
+            update({ effectiveFrom: value });
+          }}
           footer={true}
+          disabled={noExpiry}
         />
         <DatePicker
           label="Effective Till"
-          placeholder="End date"
-          value={metadata.effectiveTill}
-          onChange={(value) => update({ effectiveTill: value })}
+          placeholder={noExpiry ? "NOEXPIRY" : "End date"}
+          value={noExpiry ? "" : metadata.effectiveTill}
+          onChange={(value) => {
+            if (noExpiry) return;
+            update({ effectiveTill: value });
+          }}
           footer={true}
+          disabled={noExpiry}
         />
       </div>
 

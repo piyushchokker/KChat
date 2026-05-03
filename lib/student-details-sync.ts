@@ -21,13 +21,14 @@ const DEFAULT_STUDENT_DETAIL_TABLES = ["student_details", "student_detail"];
 const ROLL_NUMBER_COLUMNS = [
   "roll_number",
   "roll_no",
+  "roll no",
   "rollno",
   "enrollment_no",
   "registration_no",
   "student_roll_number",
 ];
 
-const NAME_COLUMNS = ["student_name", "name", "full_name"];
+const NAME_COLUMNS = ["student_name", "student name", "name", "full_name"];
 const EMAIL_COLUMNS = ["student_email", "email"];
 const COURSE_COLUMNS = [
   "course",
@@ -40,6 +41,10 @@ const COURSE_COLUMNS = [
 ];
 const SCHOOL_COLUMNS = ["school", "school_name", "faculty", "faculty_name"];
 const DEPARTMENT_COLUMNS = ["department", "department_name", "dept"];
+
+function normalizeKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -54,8 +59,9 @@ function getCaseInsensitiveValue(
   const keys = Object.keys(record);
 
   for (const preferredKey of preferredKeys) {
+    const normalizedPreferredKey = normalizeKey(preferredKey);
     const foundKey = keys.find(
-      (key) => key.toLowerCase() === preferredKey.toLowerCase()
+      (key) => normalizeKey(key) === normalizedPreferredKey
     );
 
     if (!foundKey) continue;

@@ -144,6 +144,22 @@ export async function PATCH(req: Request, context: RouteContext) {
     console.error("Failed to insert resolved knowledge:", knowledgeError);
   }
 
+  // 4b. Add to cached_quries for Excel cache / query tracking
+  const { error: cachedQueryError } = await admin.from("cached_quries").insert({
+    query: existingTicket.query,
+    answer: answer,
+    created_by: registrar.id,
+    metadata: {
+      source: "ticket_resolution",
+      ticket_id: id,
+      ticket_user_id: existingTicket.user_id,
+    },
+  });
+
+  if (cachedQueryError) {
+    console.error("Failed to insert cached query:", cachedQueryError);
+  }
+
   // 5. Log the resolution event
   await admin.from("ticket_events").insert({
     ticket_id: id,

@@ -7,16 +7,12 @@ type StudentProfileRow = {
   id: string;
   name: string;
   email: string;
-  role: string;
   roll_number: string | null;
   course: string | null;
   school: string | null;
-  department: string | null;
   program: string | null;
-  designation: string | null;
   image_url: string | null;
   is_allowed: boolean;
-  created_at: string;
 };
 
 function resolveStudentName(email: string, metadata: Record<string, unknown>): string {
@@ -33,21 +29,6 @@ function resolveStudentName(email: string, metadata: Record<string, unknown>): s
 function toDisplayValue(value: string | null | undefined): string {
   const normalized = value?.trim();
   return normalized && normalized.length > 0 ? normalized : "Not available";
-}
-
-function toDateLabel(value: string | null | undefined): string {
-  if (!value) return "Not available";
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "Not available";
-  }
-
-  return parsed.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 export default async function StudentProfilePage() {
@@ -86,7 +67,7 @@ export default async function StudentProfilePage() {
     const { data: byAuthId } = await admin
       .from("users")
       .select(
-        "id, name, email, role, roll_number, course, school, department, program, designation, image_url, is_allowed, created_at"
+        "id, name, email, roll_number, course, school, program, image_url, is_allowed"
       )
       .eq("auth_id", authUser.id)
       .maybeSingle<StudentProfileRow>();
@@ -97,7 +78,7 @@ export default async function StudentProfilePage() {
       const { data: byEmail } = await admin
         .from("users")
         .select(
-          "id, name, email, role, roll_number, course, school, department, program, designation, image_url, is_allowed, created_at"
+          "id, name, email, roll_number, course, school, program, image_url, is_allowed"
         )
         .ilike("email", email)
         .maybeSingle<StudentProfileRow>();
@@ -121,7 +102,7 @@ export default async function StudentProfilePage() {
           roll_number: fallbackRollNumber,
         })
         .select(
-          "id, name, email, role, roll_number, course, school, department, program, designation, image_url, is_allowed, created_at"
+          "id, name, email, roll_number, course, school, program, image_url, is_allowed"
         )
         .single<StudentProfileRow>();
 
@@ -153,64 +134,45 @@ export default async function StudentProfilePage() {
             Your basic information associated with your student account.
           </p>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Name</p>
-              <p className="mt-1 text-sm font-medium text-gray-900 dark:text-zinc-100">{toDisplayValue(profileName)}</p>
-            </div>
-            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Email</p>
-              <p className="mt-1 break-all text-sm font-medium text-gray-900 dark:text-zinc-100">
-                {toDisplayValue(profileEmail)}
+          <div className="mt-6 overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-sky-50 shadow-sm dark:border-zinc-700 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800">
+            <div className="border-b border-blue-100/80 px-5 py-4 dark:border-zinc-700">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">
+                Student Account
+              </p>
+              <p className="mt-1 text-base font-semibold text-gray-900 dark:text-zinc-100">
+                {toDisplayValue(profileName)}
               </p>
             </div>
-            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Role</p>
-              <p className="mt-1 text-sm font-medium capitalize text-gray-900 dark:text-zinc-100">
-                {toDisplayValue(profile?.role ?? "student")}
-              </p>
-            </div>
-            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Roll Number</p>
-              <p className="mt-1 text-sm font-medium text-gray-900 dark:text-zinc-100">
-                {toDisplayValue(profile?.roll_number ?? fallbackRollNumber)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Course</p>
-              <p className="mt-1 text-sm font-medium text-gray-900 dark:text-zinc-100">
-                {toDisplayValue(profile?.course ?? profile?.program)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">School</p>
-              <p className="mt-1 text-sm font-medium text-gray-900 dark:text-zinc-100">
-                {toDisplayValue(profile?.school)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Department</p>
-              <p className="mt-1 text-sm font-medium text-gray-900 dark:text-zinc-100">
-                {toDisplayValue(profile?.department)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Program</p>
-              <p className="mt-1 text-sm font-medium text-gray-900 dark:text-zinc-100">
-                {toDisplayValue(profile?.program)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Designation</p>
-              <p className="mt-1 text-sm font-medium text-gray-900 dark:text-zinc-100">
-                {toDisplayValue(profile?.designation)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-zinc-700 dark:bg-zinc-800 sm:col-span-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Joined On</p>
-              <p className="mt-1 text-sm font-medium text-gray-900 dark:text-zinc-100">
-                {toDateLabel(profile?.created_at)}
-              </p>
+
+            <div className="grid grid-cols-1 gap-2 p-3 sm:p-4">
+              <div className="grid items-start gap-2 rounded-xl border border-white/70 bg-white/85 px-4 py-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/80 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Name</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-zinc-100">{toDisplayValue(profileName)}</p>
+              </div>
+              <div className="grid items-start gap-2 rounded-xl border border-white/70 bg-white/85 px-4 py-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/80 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Roll Number</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-zinc-100">
+                  {toDisplayValue(profile?.roll_number ?? fallbackRollNumber)}
+                </p>
+              </div>
+              <div className="grid items-start gap-2 rounded-xl border border-white/70 bg-white/85 px-4 py-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/80 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Email</p>
+                <p className="break-all text-sm font-medium text-gray-900 dark:text-zinc-100">
+                  {toDisplayValue(profileEmail)}
+                </p>
+              </div>
+              <div className="grid items-start gap-2 rounded-xl border border-white/70 bg-white/85 px-4 py-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/80 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">Course</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-zinc-100">
+                  {toDisplayValue(profile?.course ?? profile?.program)}
+                </p>
+              </div>
+              <div className="grid items-start gap-2 rounded-xl border border-white/70 bg-white/85 px-4 py-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/80 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">School</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-zinc-100">
+                  {toDisplayValue(profile?.school)}
+                </p>
+              </div>
             </div>
           </div>
         </div>

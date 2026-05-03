@@ -43,21 +43,37 @@ const MIME_BY_EXTENSION: Record<string, string[]> = {
 
 const JSON_TEXT_EXTENSIONS = new Set([".json", ".jsonl"]);
 const FALLBACK_DEBUG_JSON_BYTES = 1024 * 1024;
+const NO_EXPIRY_VALUE = "NOEXPIRY";
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const effectiveDateSchema = z.union([
+  z.string().regex(DATE_PATTERN),
+  z.literal(NO_EXPIRY_VALUE),
+]);
 
 const metadataSchema = z
   .object({
     title: z.string().trim().min(3).max(200),
     documentType: z.string().trim().min(1).max(80),
     issuingAuthority: z.string().trim().min(2).max(120),
-    effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    effectiveTill: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    effectiveFrom: effectiveDateSchema,
+    effectiveTill: effectiveDateSchema,
     school: z.string().trim().max(120).optional().nullable(),
     course: z.string().trim().max(160).optional().nullable(),
     semester: z.string().trim().max(50).optional().nullable(),
     keywords: z.array(z.string().trim().min(1).max(50)).max(30).default([]),
   })
-  .refine((m) => m.effectiveTill >= m.effectiveFrom, {
-    message: "effectiveTill must be greater than or equal to effectiveFrom",
+  .refine((m) => {
+    const fromNoExpiry = m.effectiveFrom === NO_EXPIRY_VALUE;
+    const tillNoExpiry = m.effectiveTill === NO_EXPIRY_VALUE;
+
+    if (fromNoExpiry || tillNoExpiry) {
+      return fromNoExpiry && tillNoExpiry;
+    }
+
+    return m.effectiveTill >= m.effectiveFrom;
+  }, {
+    message:
+      "effective dates must both be NOEXPIRY or effectiveTill must be greater than or equal to effectiveFrom",
     path: ["effectiveTill"],
   });
 

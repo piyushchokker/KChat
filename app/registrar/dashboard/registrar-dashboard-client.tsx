@@ -31,6 +31,13 @@ export default function RegistrarDashboardClient({
             Manage Students
           </LoadingLinkButton>
           <LoadingLinkButton
+            href="/registrar/student-queries"
+            variant="secondary"
+            className="h-10 border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            Cached Queries
+          </LoadingLinkButton>
+          <LoadingLinkButton
             href="/registrar/raised-queries"
             variant="secondary"
             className="h-10 border border-blue-800 bg-white px-4 text-sm font-semibold text-blue-800 hover:bg-blue-50"

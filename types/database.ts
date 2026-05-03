@@ -584,6 +584,44 @@ export type Database = {
           },
         ]
       }
+      cached_quries: {
+        Row: {
+          answer: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          metadata: Json
+          query: string
+          updated_at: string
+        }
+        Insert: {
+          answer?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          metadata?: Json
+          query: string
+          updated_at?: string
+        }
+        Update: {
+          answer?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          metadata?: Json
+          query?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cached_quries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
 
       users: {
         Row: {

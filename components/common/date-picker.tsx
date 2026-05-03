@@ -9,6 +9,7 @@ interface DatePickerProps {
   placeholder?: string;
   footer?: boolean;
   locale?: string;
+  disabled?: boolean;
 }
 
 function formatLocalDate(date: Date): string {
@@ -36,6 +37,7 @@ export default function DatePicker({
   placeholder = "Choose a date",
   footer = true,
   locale = "en-US",
+  disabled = false,
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const selectedDate = value || "";
@@ -59,6 +61,7 @@ export default function DatePicker({
   }, []);
 
   const handleToggleOpen = () => {
+    if (disabled) return;
     if (!isOpen) {
       const nextViewDate = selectedDate
         ? parseLocalDate(selectedDate) ?? new Date()
@@ -95,6 +98,7 @@ export default function DatePicker({
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   const handleDateClick = (day: number) => {
+    if (disabled) return;
     const selected = new Date(displayDate.getFullYear(), displayDate.getMonth(), day);
     const formatted = formatLocalDate(selected);
     onChange(formatted);
@@ -102,14 +106,17 @@ export default function DatePicker({
   };
 
   const handlePrevMonth = () => {
+    if (disabled) return;
     setDisplayDate(new Date(displayDate.getFullYear(), displayDate.getMonth() - 1));
   };
 
   const handleNextMonth = () => {
+    if (disabled) return;
     setDisplayDate(new Date(displayDate.getFullYear(), displayDate.getMonth() + 1));
   };
 
   const handleToday = () => {
+    if (disabled) return;
     const today = new Date();
     const formatted = formatLocalDate(today);
     onChange(formatted);
@@ -118,6 +125,7 @@ export default function DatePicker({
   };
 
   const handleClear = () => {
+    if (disabled) return;
     onChange("");
     setDisplayDate(new Date());
   };
@@ -152,7 +160,13 @@ export default function DatePicker({
       {/* Input Field */}
       <div
         onClick={handleToggleOpen}
-        className="flex cursor-pointer items-center justify-between rounded-lg border border-gray-300 bg-white px-4 py-2 transition-all hover:border-blue-400 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200"
+        className={[
+          "flex items-center justify-between rounded-lg border border-gray-300 bg-white px-4 py-2 transition-all",
+          disabled
+            ? "cursor-not-allowed opacity-70"
+            : "cursor-pointer hover:border-blue-400 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200",
+        ].join(" ")}
+        aria-disabled={disabled}
       >
         <span className={selectedDate ? "text-gray-900" : "text-gray-400"}>
           {formattedValue}

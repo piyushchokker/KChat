@@ -86,6 +86,7 @@ export default function DocumentUploadForm() {
   const { options: metadataOptions } = useDocumentMetadataOptions();
   const [file, setFile] = useState<File | null>(null);
   const [metadata, setMetadata] = useState<DocumentMetadata>(DEFAULT_METADATA);
+  const [noExpiry, setNoExpiry] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sanitizedMetadata = sanitizeMetadataForOptions(metadata, metadataOptions);
 
@@ -97,8 +98,12 @@ export default function DocumentUploadForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
+    const effectiveFrom = noExpiry ? "NOEXPIRY" : sanitizedMetadata.effectiveFrom;
+    const effectiveTill = noExpiry ? "NOEXPIRY" : sanitizedMetadata.effectiveTill;
     const uploadMetadata: DocumentMetadata = {
       ...sanitizedMetadata,
+      effectiveFrom,
+      effectiveTill,
       title:
         sanitizedMetadata.title && sanitizedMetadata.title.trim() !== ""
           ? sanitizedMetadata.title
@@ -110,6 +115,7 @@ export default function DocumentUploadForm() {
     // Reset form
     setFile(null);
     setMetadata(DEFAULT_METADATA);
+    setNoExpiry(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -157,6 +163,8 @@ export default function DocumentUploadForm() {
         metadata={sanitizedMetadata}
         onChange={setMetadata}
         options={metadataOptions}
+        noExpiry={noExpiry}
+        onNoExpiryChange={setNoExpiry}
       />
 
       {/* Submit */}

@@ -44,6 +44,8 @@ const MIME_BY_EXTENSION: Record<string, string[]> = {
 const JSON_TEXT_EXTENSIONS = new Set([".json", ".jsonl"]);
 const FALLBACK_DEBUG_JSON_BYTES = 1024 * 1024;
 const NO_EXPIRY_VALUE = "NOEXPIRY";
+const NO_EXPIRY_DB_FROM = "1900-01-01";
+const NO_EXPIRY_DB_TILL = "9999-12-31";
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const effectiveDateSchema = z.union([
   z.string().regex(DATE_PATTERN),
@@ -78,6 +80,26 @@ const metadataSchema = z
   });
 
 type ParsedUploadMetadata = z.infer<typeof metadataSchema>;
+
+function coerceEffectiveDates(metadata: ParsedUploadMetadata): {
+  effectiveFrom: string;
+  effectiveTill: string;
+  isNoExpiry: boolean;
+} {
+  if (metadata.effectiveFrom === NO_EXPIRY_VALUE) {
+    return {
+      effectiveFrom: NO_EXPIRY_DB_FROM,
+      effectiveTill: NO_EXPIRY_DB_TILL,
+      isNoExpiry: true,
+    };
+  }
+
+  return {
+    effectiveFrom: metadata.effectiveFrom,
+    effectiveTill: metadata.effectiveTill,
+    isNoExpiry: false,
+  };
+}
 
 function validateMetadataSelections(
   metadata: ParsedUploadMetadata,
@@ -488,6 +510,7 @@ export async function POST(req: Request) {
       .getPublicUrl(storagePath);
 
     // Insert document record
+    const effectiveDates = coerceEffectiveDates(metadata);
     const { data: doc, error: dbError } = await admin
       .from("documents")
       .insert({
@@ -500,8 +523,8 @@ export async function POST(req: Request) {
         school: metadata.school || null,
         course: metadata.course || null,
         semester: metadata.semester || null,
-        effective_from: metadata.effectiveFrom,
-        effective_till: metadata.effectiveTill,
+        effective_from: effectiveDates.effectiveFrom,
+        effective_till: effectiveDates.effectiveTill,
         keywords: metadata.keywords || [],
         issuing_authority: metadata.issuingAuthority,
         uploaded_by: user.id,
@@ -513,6 +536,14 @@ export async function POST(req: Request) {
       // Cleanup uploaded file on DB error
       await admin.storage.from("documents").remove([storagePath]);
       console.error("Database insert error:", dbError);
+
+      if (dbError.code === "22007") {
+        return NextResponse.json(
+          { error: "Invalid effectiveFrom/effectiveTill date format." },
+          { status: 400 }
+        );
+      }
+
       return NextResponse.json(
         { error: "Failed to save document metadata" },
         { status: 500 }
@@ -541,8 +572,8 @@ export async function POST(req: Request) {
         school: doc.school,
         course: doc.course,
         semester: doc.semester,
-        effectiveFrom: doc.effective_from,
-        effectiveTill: doc.effective_till,
+        effectiveFrom: effectiveDates.isNoExpiry ? NO_EXPIRY_VALUE : doc.effective_from,
+        effectiveTill: effectiveDates.isNoExpiry ? NO_EXPIRY_VALUE : doc.effective_till,
         keywords: doc.keywords,
         issuingAuthority: doc.issuing_authority,
       },

@@ -24,7 +24,11 @@ export default function HomeClient() {
     const refreshToken = params.get("refresh_token");
 
     if (type === "recovery" && accessToken && refreshToken) {
-      window.location.replace(`/admin/login/reset-password${hash}`);
+      // Defer navigation by one frame to avoid dispatching a router action
+      // before App Router initialization on first paint.
+      requestAnimationFrame(() => {
+        window.location.replace(`/admin/login/reset-password${hash}`);
+      });
     }
   }, []);
 

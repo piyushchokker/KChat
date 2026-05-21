@@ -39,6 +39,7 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  sources?: DocumentSource[];
 }
 
 export interface ChatRequest {
@@ -53,9 +54,12 @@ export interface ChatResponse {
 }
 
 export interface DocumentSource {
-  title: string;
-  type: string;
-  relevance: number;
+  filename?: string;
+  document_url?: string;
+  storage_path?: string;
+  title?: string;
+  type?: string;
+  relevance?: number;
 }
 
 // ---------- Documents ----------

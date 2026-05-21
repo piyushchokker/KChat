@@ -245,11 +245,12 @@ export async function getConversationMessages(
   if (!res.ok) return [];
 
   const data = await res.json();
-  return data.map((m: { id: string; role: string; content: string; timestamp: string }) => ({
+  return data.map((m: { id: string; role: string; content: string; timestamp: string; sources?: DocumentSource[] }) => ({
     id: m.id,
     role: m.role as "user" | "assistant",
     content: m.content,
     timestamp: new Date(m.timestamp),
+    sources: Array.isArray(m.sources) ? m.sources : [],
   }));
 }
 
@@ -327,6 +328,7 @@ export async function getRetSessionHistory(
       role: message.role as "user" | "assistant",
       content: message.content,
       timestamp: toMessageDate(message.timestamp),
+      sources: [],
     }));
 }
 

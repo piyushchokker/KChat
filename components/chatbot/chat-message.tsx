@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -7,6 +7,8 @@ import type { ChatMessage } from "@/types";
 interface ChatMessageBubbleProps {
   message: ChatMessage;
 }
+
+const SOURCE_LINK_TTL_MS = 5 * 60 * 1000;
 
 function fallbackCopyText(value: string): boolean {
   const textArea = document.createElement("textarea");
@@ -36,6 +38,53 @@ function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
     () => message.content.split("\n\n"),
     [message.content]
   );
+  const sourceButtons = useMemo(() => {
+    const seenUrls = new Set<string>();
+    const list = Array.isArray(message.sources) ? message.sources : [];
+
+    return list
+      .filter((source) => {
+        const rawUrl = source?.document_url;
+        const rawPath = (source as { storage_path?: unknown })?.storage_path;
+
+        const hasUrl = typeof rawUrl === "string" && rawUrl.trim().length > 0;
+        const hasPath = typeof rawPath === "string" && rawPath.trim().length > 0;
+        if (!hasUrl && !hasPath) return false;
+
+        const dedupeKey = hasUrl ? rawUrl.trim() : `path:${String(rawPath).trim()}`;
+        if (seenUrls.has(dedupeKey)) return false;
+        seenUrls.add(dedupeKey);
+        return true;
+      })
+      .map((source) => {
+        const storage_path =
+          typeof (source as { storage_path?: unknown })?.storage_path === "string"
+            ? String((source as { storage_path?: string }).storage_path).trim()
+            : "";
+        const document_url =
+          typeof source.document_url === "string" ? source.document_url.trim() : "";
+        const filename =
+          typeof source.filename === "string" && source.filename.trim()
+            ? source.filename.trim()
+            : "Original File";
+        const href = document_url
+          ? document_url
+          : storage_path
+            ? `/api/documents/download?path=${encodeURIComponent(storage_path)}&filename=${encodeURIComponent(filename)}`
+            : "";
+
+        return { href, filename };
+      });
+  }, [message.sources]);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const sourceLinkExpiresAtMs = useMemo(() => {
+    const ts = new Date(message.timestamp).getTime();
+    if (!Number.isFinite(ts)) {
+      return nowMs;
+    }
+    return ts + SOURCE_LINK_TTL_MS;
+  }, [message.timestamp, nowMs]);
+  const sourceLinksExpired = nowMs >= sourceLinkExpiresAtMs;
 
   useEffect(() => {
     return () => {
@@ -44,6 +93,20 @@ function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (isUser || sourceButtons.length === 0 || sourceLinksExpired) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isUser, sourceButtons.length, sourceLinksExpired]);
 
   const handleCopy = async () => {
     const textToCopy = message.content?.trim() ?? "";
@@ -152,6 +215,87 @@ function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
             </p>
           ))}
         </div>
+        {!isUser && sourceButtons.length > 0 ? (
+          <div className="mt-3">
+            <p className="mb-2 text-xs font-medium text-gray-500 dark:text-zinc-400">Sources</p>
+            <div className="flex flex-wrap gap-2">
+              {sourceButtons.map((source, index) => (
+                <a
+                  key={`${source.href}-${index}`}
+                  href={sourceLinksExpired ? undefined : source.href}
+                  target={sourceLinksExpired ? undefined : "_blank"}
+                  rel={sourceLinksExpired ? undefined : "noopener noreferrer"}
+                  download={sourceLinksExpired ? undefined : true}
+                  aria-disabled={sourceLinksExpired}
+                  title={sourceLinksExpired ? "Link expired after 5 minutes" : source.filename}
+                  onClick={
+                    sourceLinksExpired
+                      ? (event) => {
+                          event.preventDefault();
+                        }
+                      : undefined
+                  }
+                  className={cn(
+                    "group relative inline-flex items-center gap-1.5 overflow-hidden rounded-full border px-2.5 py-1 text-xs font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-colors duration-200",
+                    sourceLinksExpired
+                      ? "cursor-not-allowed border-blue-300/20 bg-blue-500/5 text-blue-200/45"
+                      : "border-blue-400/30 bg-blue-500/10 text-blue-100 hover:bg-blue-500/20"
+                  )}
+                >
+                  <span
+                    className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                    style={{
+                      transform: "translateX(-120%)",
+                      animation: sourceLinksExpired
+                        ? "none"
+                        : "sourceShimmerSweep 2s linear infinite",
+                    }}
+                  />
+                  <span
+                    className="relative z-10 inline-flex h-4 w-4 items-center justify-center overflow-hidden rounded-full bg-red-500/15"
+                    aria-hidden
+                  >
+                    <svg
+                      className="h-3 w-3 text-red-200"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M14 2v6h6"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M8 13h8M8 17h8M8 9h3"
+                      />
+                    </svg>
+                  </span>
+                  <span className="relative z-10 truncate max-w-[180px]">{source.filename}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        <style jsx>{`
+          @keyframes sourceShimmerSweep {
+            0% {
+              transform: translateX(-120%);
+            }
+            100% {
+              transform: translateX(120%);
+            }
+          }
+        `}</style>
         <p
           className={cn(
             "mt-1.5 text-xs",
@@ -172,3 +316,4 @@ export default memo(
   ChatMessageBubble,
   (prev, next) => prev.message === next.message
 );
+

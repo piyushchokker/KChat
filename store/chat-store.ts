@@ -218,6 +218,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                       role: "assistant" as const,
                       content: done.assistantMessage.content,
                       timestamp: new Date(done.assistantMessage.timestamp),
+                      sources: done.assistantMessage.sources ?? [],
                     }
                   : m
               ),

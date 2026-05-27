@@ -107,8 +107,8 @@ export type Database = {
           course: string | null
           created_at: string
           document_type: string
-          effective_from: string
-          effective_till: string
+          effective_from: string | null
+          effective_till: string | null
           file_name: string
           file_size: number
           file_url: string
@@ -138,8 +138,8 @@ export type Database = {
           course?: string | null
           created_at?: string
           document_type: string
-          effective_from: string
-          effective_till: string
+          effective_from?: string | null
+          effective_till?: string | null
           file_name: string
           file_size?: number
           file_url: string
@@ -169,8 +169,8 @@ export type Database = {
           course?: string | null
           created_at?: string
           document_type?: string
-          effective_from?: string
-          effective_till?: string
+          effective_from?: string | null
+          effective_till?: string | null
           file_name?: string
           file_size?: number
           file_url?: string

@@ -9,6 +9,8 @@ import type { FrontendMetadataOptions } from "@/types/document-metadata-options"
 import useDocumentStore from "@/store/document-store";
 import type { DocumentMetadata } from "@/types";
 
+const KRMU_SCHOOL_ID = "10";
+
 const DEFAULT_METADATA: DocumentMetadata = {
   title: "",
   documentType: "policy",
@@ -87,6 +89,7 @@ export default function DocumentUploadForm() {
   const [file, setFile] = useState<File | null>(null);
   const [metadata, setMetadata] = useState<DocumentMetadata>(DEFAULT_METADATA);
   const [noExpiry, setNoExpiry] = useState(false);
+  const [isKrmGeneralDocuments, setIsKrmGeneralDocuments] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sanitizedMetadata = sanitizeMetadataForOptions(metadata, metadataOptions);
 
@@ -100,10 +103,22 @@ export default function DocumentUploadForm() {
     if (!file) return;
     const effectiveFrom = noExpiry ? "NOEXPIRY" : sanitizedMetadata.effectiveFrom;
     const effectiveTill = noExpiry ? "NOEXPIRY" : sanitizedMetadata.effectiveTill;
+
+    const effectiveSchool = isKrmGeneralDocuments
+      ? KRMU_SCHOOL_ID
+      : sanitizedMetadata.school ?? null;
+    const effectiveCourse = isKrmGeneralDocuments ? null : sanitizedMetadata.course ?? null;
+    const effectiveSemester = isKrmGeneralDocuments
+      ? null
+      : sanitizedMetadata.semester ?? null;
+
     const uploadMetadata: DocumentMetadata = {
       ...sanitizedMetadata,
       effectiveFrom,
       effectiveTill,
+      school: effectiveSchool,
+      course: effectiveCourse,
+      semester: effectiveSemester,
       title:
         sanitizedMetadata.title && sanitizedMetadata.title.trim() !== ""
           ? sanitizedMetadata.title
@@ -116,6 +131,7 @@ export default function DocumentUploadForm() {
     setFile(null);
     setMetadata(DEFAULT_METADATA);
     setNoExpiry(false);
+    setIsKrmGeneralDocuments(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -165,6 +181,18 @@ export default function DocumentUploadForm() {
         options={metadataOptions}
         noExpiry={noExpiry}
         onNoExpiryChange={setNoExpiry}
+        isKrmGeneralDocuments={isKrmGeneralDocuments}
+        onKrmGeneralDocumentsChange={(nextEnabled) => {
+          setIsKrmGeneralDocuments(nextEnabled);
+          if (nextEnabled) {
+            setMetadata((prev) => ({
+              ...prev,
+              school: KRMU_SCHOOL_ID,
+              course: null,
+              semester: null,
+            }));
+          }
+        }}
       />
 
       {/* Submit */}

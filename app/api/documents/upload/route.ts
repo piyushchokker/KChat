@@ -85,12 +85,16 @@ function coerceEffectiveDates(metadata: ParsedUploadMetadata): {
   effectiveFrom: string;
   effectiveTill: string;
   isNoExpiry: boolean;
+  dbEffectiveFrom: string | null;
+  dbEffectiveTill: string | null;
 } {
   if (metadata.effectiveFrom === NO_EXPIRY_VALUE) {
     return {
       effectiveFrom: NO_EXPIRY_DB_FROM,
       effectiveTill: NO_EXPIRY_DB_TILL,
       isNoExpiry: true,
+      dbEffectiveFrom: null,
+      dbEffectiveTill: null,
     };
   }
 
@@ -98,6 +102,8 @@ function coerceEffectiveDates(metadata: ParsedUploadMetadata): {
     effectiveFrom: metadata.effectiveFrom,
     effectiveTill: metadata.effectiveTill,
     isNoExpiry: false,
+    dbEffectiveFrom: metadata.effectiveFrom,
+    dbEffectiveTill: metadata.effectiveTill,
   };
 }
 
@@ -105,6 +111,8 @@ function validateMetadataSelections(
   metadata: ParsedUploadMetadata,
   options: FrontendMetadataOptions
 ): string | null {
+  const KRMU_GENERAL_SCHOOL_ID = "10";
+
   if (options.documentTypes.length === 0 && options.schools.length === 0) {
     return null;
   }
@@ -127,6 +135,14 @@ function validateMetadataSelections(
   if (!schoolId) {
     if (courseId || semesterValue) {
       return "Select a school before choosing course or semester.";
+    }
+
+    return null;
+  }
+
+  if (schoolId === KRMU_GENERAL_SCHOOL_ID) {
+    if (courseId || semesterValue) {
+      return "Course or semester cannot be set for KRMU general documents.";
     }
 
     return null;
@@ -511,24 +527,27 @@ export async function POST(req: Request) {
 
     // Insert document record
     const effectiveDates = coerceEffectiveDates(metadata);
-    const { data: doc, error: dbError } = await admin
+
+    const insertPayload: Record<string, unknown> = {
+      title: metadata.title,
+      file_name: file.name,
+      file_url: urlData.publicUrl,
+      file_size: file.size,
+      storage_path: storagePath,
+      document_type: metadata.documentType,
+      school: metadata.school || null,
+      course: metadata.course || null,
+      semester: metadata.semester || null,
+      effective_from: effectiveDates.dbEffectiveFrom,
+      effective_till: effectiveDates.dbEffectiveTill,
+      keywords: metadata.keywords || [],
+      issuing_authority: metadata.issuingAuthority,
+      uploaded_by: user.id,
+    };
+
+    let { data: doc, error: dbError } = await admin
       .from("documents")
-      .insert({
-        title: metadata.title,
-        file_name: file.name,
-        file_url: urlData.publicUrl,
-        file_size: file.size,
-        storage_path: storagePath,
-        document_type: metadata.documentType,
-        school: metadata.school || null,
-        course: metadata.course || null,
-        semester: metadata.semester || null,
-        effective_from: effectiveDates.effectiveFrom,
-        effective_till: effectiveDates.effectiveTill,
-        keywords: metadata.keywords || [],
-        issuing_authority: metadata.issuingAuthority,
-        uploaded_by: user.id,
-      })
+      .insert(insertPayload as any)
       .select()
       .single();
 
@@ -536,6 +555,22 @@ export async function POST(req: Request) {
       // Cleanup uploaded file on DB error
       await admin.storage.from("documents").remove([storagePath]);
       console.error("Database insert error:", dbError);
+
+      if (effectiveDates.isNoExpiry && dbError.code === "23502") {
+        return NextResponse.json(
+          {
+            error:
+              "Unable to store NULL effective dates for NOEXPIRY documents. Please ensure documents.effective_from and documents.effective_till allow NULL and no trigger/default rewrites NULL values.",
+            db: {
+              code: dbError.code ?? null,
+              message: dbError.message ?? null,
+              details: dbError.details ?? null,
+              hint: dbError.hint ?? null,
+            },
+          },
+          { status: 500 }
+        );
+      }
 
       if (dbError.code === "22007") {
         return NextResponse.json(
@@ -548,6 +583,43 @@ export async function POST(req: Request) {
         { error: "Failed to save document metadata" },
         { status: 500 }
       );
+    }
+
+    if (!doc) {
+      await admin.storage.from("documents").remove([storagePath]);
+      return NextResponse.json(
+        { error: "Failed to save document metadata" },
+        { status: 500 }
+      );
+    }
+
+    if (effectiveDates.isNoExpiry) {
+      const { data: normalizedDoc, error: normalizeError } = await admin
+        .from("documents")
+        .update({ effective_from: null, effective_till: null } as any)
+        .eq("id", doc.id)
+        .select()
+        .single();
+
+      if (!normalizeError && normalizedDoc) {
+        doc = normalizedDoc;
+      } else if (normalizeError) {
+        await admin.storage.from("documents").remove([storagePath]);
+        await admin.from("documents").delete().eq("id", doc.id);
+        return NextResponse.json(
+          {
+            error:
+              "NOEXPIRY normalization failed while writing NULL effective dates. Please verify DB constraints/triggers on documents.effective_from and documents.effective_till.",
+            db: {
+              code: normalizeError.code ?? null,
+              message: normalizeError.message ?? null,
+              details: normalizeError.details ?? null,
+              hint: normalizeError.hint ?? null,
+            },
+          },
+          { status: 500 }
+        );
+      }
     }
 
     // Audit log

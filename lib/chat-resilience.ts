@@ -225,11 +225,21 @@ function getRedisClient(): Redis | null {
   if (!redisUrl) return null;
 
   if (!globalThis.__chatRedisClient) {
-    globalThis.__chatRedisClient = new Redis(redisUrl, {
+    const client = new Redis(redisUrl, {
       maxRetriesPerRequest: 1,
       enableReadyCheck: true,
       lazyConnect: true,
+      retryStrategy: (times) => {
+        if (times > 3) return null; // stop retrying after 3 times
+        return Math.min(times * 50, 2000);
+      }
     });
+
+    client.on("error", (err) => {
+      console.warn("[Redis] Connection error:", err.message);
+    });
+
+    globalThis.__chatRedisClient = client;
   }
 
   return globalThis.__chatRedisClient;

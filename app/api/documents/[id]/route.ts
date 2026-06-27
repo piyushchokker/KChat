@@ -81,7 +81,7 @@ export async function GET(_req: Request, context: RouteContext) {
   const isPrivilegedUser =
     currentUser.role === "registrar" || currentUser.role === "admin";
   const studentSelect =
-    "id, title, file_name, file_url, file_size, document_type, school, course, semester, effective_from, effective_till, keywords, issuing_authority, created_at, updated_at";
+    "id, title, file_name, file_url, file_size, type_id, document_types(name), school_id, schools(name), course_id, courses(name), semester, effective_from, effective_till, issuing_authority, created_at, updated_at";
   const registrarSelect =
     `${studentSelect}, storage_path, uploaded_by, uploaded_by_user:users!documents_uploaded_by_fkey(name, email)`;
   const selectColumns = isPrivilegedUser ? registrarSelect : studentSelect;
@@ -132,7 +132,7 @@ export async function PATCH(req: Request, context: RouteContext) {
 
   const body = await req.json();
   const allowedFields = [
-    "title", "visibility", "allow_ai_usage", "keywords",
+    "title", "visibility", "allow_ai_usage",
     "effective_from", "effective_till", "version",
   ];
 

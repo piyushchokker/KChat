@@ -11,10 +11,15 @@ export interface StudentUser {
   email: string;
   role: "student";
   roll_number?: string;
-  course?: string;
-  school?: string;
-  program?: string;
-  department?: string;
+  course_id?: string;
+  school_id?: string;
+  
+  
+  // Kept for backward compatibility when fetching mapped values
+  
+  
+  
+  
 }
 
 export interface RegistrarUser {
@@ -22,7 +27,7 @@ export interface RegistrarUser {
   name: string;
   email: string;
   role: "registrar";
-  designation?: string;
+  
 }
 
 export type AppUser = StudentUser | RegistrarUser;
@@ -80,17 +85,20 @@ export type ApplicableTo =
 // Removed Visibility type and fields from DocumentMetadata
 export interface DocumentMetadata {
   title: string;
-  documentType: DocumentType;
+  type_id?: string;
+  documentType?: string; // string representation
   fileName?: string;
   fileSize?: number;
   issuingAuthority: string;
   effectiveFrom: string;
   effectiveTill: string;
-  school?: string | null;
-  course?: string | null;
+  school_id?: string | null;
+  course_id?: string | null;
+  school?: string | null; // string representation
+  course?: string | null; // string representation
   regulation?: string | null;
   semester?: string | null;
-  keywords: string[];
+  
   studentIntentMapping?: string | null;
   changeSummary?: string | null;
   academicYear?: string | null;

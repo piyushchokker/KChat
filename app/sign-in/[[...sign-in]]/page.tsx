@@ -1,30 +1,10 @@
 "use client";
 
-import { createBrowserClient } from "@/lib/supabase";
-import { useState } from "react";
+import { useMicrosoftAuth } from "@/lib/use-microsoft-auth";
 import Button from "@/components/common/button";
 
 export default function SignInPage() {
-  const [loading, setLoading] = useState(false);
-
-  const handleMicrosoftLogin = async () => {
-    if (loading) return;
-
-    setLoading(true);
-
-    const supabase = createBrowserClient();
-    try {
-      await supabase.auth.signInWithOAuth({
-        provider: "azure",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          scopes: "openid email profile",
-        },
-      });
-    } catch {
-      setLoading(false);
-    }
-  };
+  const { login, loading } = useMicrosoftAuth();
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
@@ -38,7 +18,7 @@ export default function SignInPage() {
           Use your university Microsoft account to continue
         </p>
         <Button
-          onClick={handleMicrosoftLogin}
+          onClick={login}
           isLoading={loading}
           className="mt-8 flex w-full items-center justify-center gap-3 rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1a1a1a] cursor-pointer transition-colors"
         >

@@ -91,7 +91,7 @@ export async function POST(request: Request) {
   const insertRows = parsed.data.rows.map((row) => ({
     query: row.query.trim(),
     answer: row.answer.trim(),
-    created_by: registrar.id,
+    
     normalized_query: normalizeQuery(row.query),
     source_type: "csv_upload",
   }));
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     .from("cached_quries")
     .insert(insertRows)
     .select(
-      "id, query, answer, created_at, created_by, created_by_user:users!cached_quries_created_by_fkey(name, email)"
+      "id, query, answer, created_at"
     );
 
   if (error) {

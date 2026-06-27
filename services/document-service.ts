@@ -1,5 +1,5 @@
 import type { DocumentMetadata, UploadedDocument } from "@/types";
-
+import { apiClient } from "./api-client";
 const SHOULD_DEBUG_REGISTRAR_UPLOAD =
   process.env.NEXT_PUBLIC_DEBUG_REGISTRAR_UPLOAD === "true";
 
@@ -97,23 +97,14 @@ export async function getDocuments(filters?: {
   if (filters?.page) params.set("page", String(filters.page));
   if (filters?.limit) params.set("limit", String(filters.limit));
 
-  const res = await fetch(`/api/documents/upload?${params.toString()}`);
-  if (!res.ok) {
-    throw new Error("Failed to fetch documents");
-  }
-
-  return res.json();
+  return apiClient.get(`/documents/upload?${params.toString()}`);
 }
 
 /**
  * Get a single document by ID.
  */
 export async function getDocument(id: string) {
-  const res = await fetch(`/api/documents/${id}`);
-  if (!res.ok) {
-    throw new Error("Document not found");
-  }
-  return res.json();
+  return apiClient.get(`/documents/${id}`);
 }
 
 /**
@@ -123,31 +114,12 @@ export async function updateDocument(
   id: string,
   updates: Partial<DocumentMetadata>
 ) {
-  const res = await fetch(`/api/documents/${id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(updates),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Update failed" }));
-    throw new Error(err.error ?? "Failed to update document");
-  }
-
-  return res.json();
+  return apiClient.patch(`/documents/${id}`, updates);
 }
 
 /**
  * Delete a document.
  */
 export async function deleteDocument(id: string): Promise<void> {
-  const res = await fetch(`/api/documents/${id}`, {
-    method: "DELETE",
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Delete failed" }));
-    throw new Error(err.error ?? "Failed to delete document");
-  }
+  await apiClient.delete(`/documents/${id}`);
 }
-

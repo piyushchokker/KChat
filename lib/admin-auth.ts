@@ -2,6 +2,7 @@ import "server-only";
 
 import { redirect } from "next/navigation";
 import { createAdminClient, createServerClient } from "@/lib/supabase-server";
+import { resolveAppUser } from "@/lib/db-user";
 
 type AdminUserRecord = {
   id: string;
@@ -26,32 +27,8 @@ export async function requireAuthorizedAdmin(): Promise<AdminUserRecord> {
     redirect("/admin/login?error=unauthorized");
   }
 
-  const normalizedEmail = (authUser.email ?? "").trim().toLowerCase();
   const admin = createAdminClient();
-
-  const { data: byAuthId } = await admin
-    .from("users")
-    .select("id, auth_id, role, is_allowed, name, email")
-    .eq("auth_id", authUser.id)
-    .maybeSingle();
-
-  let appUser = byAuthId;
-
-  if (!appUser && normalizedEmail) {
-    const { data: byEmail } = await admin
-      .from("users")
-      .select("id, auth_id, role, is_allowed, name, email")
-      .ilike("email", normalizedEmail)
-      .maybeSingle();
-
-    if (byEmail) {
-      appUser = byEmail;
-
-      if (byEmail.auth_id !== authUser.id) {
-        await admin.from("users").update({ auth_id: authUser.id }).eq("id", byEmail.id);
-      }
-    }
-  }
+  const appUser = await resolveAppUser(admin, authUser);
 
   const isAuthorizedAdmin =
     appUser?.role === "admin" && appUser.is_allowed !== false;
@@ -60,5 +37,5 @@ export async function requireAuthorizedAdmin(): Promise<AdminUserRecord> {
     redirect("/admin/login?error=unauthorized");
   }
 
-  return appUser;
+  return appUser as AdminUserRecord;
 }

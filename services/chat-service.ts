@@ -1,4 +1,5 @@
 import type { ChatMessage, DocumentSource } from "@/types";
+import { apiClient } from "./api-client";
 
 export interface ChatApiResponse {
   conversationId: string;
@@ -230,9 +231,11 @@ export async function sendChatMessageStream(
  * Get all conversations for the current user.
  */
 export async function getConversations(): Promise<ConversationSummary[]> {
-  const res = await fetch("/api/chat/conversations");
-  if (!res.ok) return [];
-  return res.json();
+  try {
+    return await apiClient.get<ConversationSummary[]>("/chat/conversations");
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -241,17 +244,18 @@ export async function getConversations(): Promise<ConversationSummary[]> {
 export async function getConversationMessages(
   conversationId: string
 ): Promise<ChatMessage[]> {
-  const res = await fetch(`/api/chat/conversations/${conversationId}`);
-  if (!res.ok) return [];
-
-  const data = await res.json();
-  return data.map((m: { id: string; role: string; content: string; timestamp: string; sources?: DocumentSource[] }) => ({
-    id: m.id,
-    role: m.role as "user" | "assistant",
-    content: m.content,
-    timestamp: new Date(m.timestamp),
-    sources: Array.isArray(m.sources) ? m.sources : [],
-  }));
+  try {
+    const data = await apiClient.get<any[]>(`/chat/conversations/${conversationId}`);
+    return data.map((m: any) => ({
+      id: m.id,
+      role: m.role as "user" | "assistant",
+      content: m.content,
+      timestamp: new Date(m.timestamp),
+      sources: Array.isArray(m.sources) ? m.sources : [],
+    }));
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -260,9 +264,7 @@ export async function getConversationMessages(
 export async function deleteConversation(
   conversationId: string
 ): Promise<void> {
-  await fetch(`/api/chat/conversations/${conversationId}`, {
-    method: "DELETE",
-  });
+  await apiClient.delete(`/chat/conversations/${conversationId}`);
 }
 
 function toMessageDate(timestamp: string | number | null | undefined): Date {
@@ -331,4 +333,3 @@ export async function getRetSessionHistory(
       sources: [],
     }));
 }
-

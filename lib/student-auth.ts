@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase-server";
-
+import { resolveAppUser } from "@/lib/db-user";
 const DEFAULT_TRUSTED_DOMAINS = ["krmangalam.edu.in", "krmu.edu.in"];
 
 type AuthUserLike = {
@@ -49,32 +49,7 @@ export async function verifyStudentAccess(
 
   try {
     const admin = createAdminClient();
-
-    const { data: byAuthId, error: byAuthIdError } = await admin
-      .from("users")
-      .select("id, role, is_allowed")
-      .eq("auth_id", authUser.id)
-      .maybeSingle();
-
-    if (byAuthIdError) {
-      return { ok: false, reason: "lookup_failed" };
-    }
-
-    let profile = byAuthId;
-
-    if (!profile) {
-      const { data: byEmail, error: byEmailError } = await admin
-        .from("users")
-        .select("id, role, is_allowed")
-        .ilike("email", normalizedEmail)
-        .maybeSingle();
-
-      if (byEmailError) {
-        return { ok: false, reason: "lookup_failed" };
-      }
-
-      profile = byEmail;
-    }
+    const profile = await resolveAppUser(admin, authUser);
 
     // Allow first-time students to proceed. The chat session page will upsert profile.
     if (!profile) {

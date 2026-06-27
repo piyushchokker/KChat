@@ -22,7 +22,7 @@ const DEFAULT_METADATA: DocumentMetadata = {
   school: null,
   course: null,
   semester: null,
-  keywords: [],
+  
 };
 
 function sanitizeMetadataForOptions(

@@ -8,11 +8,11 @@ import type {
   MetadataOptionLevel,
 } from "@/types/document-metadata-options";
 
-type DocumentMetadataTypeRow = Database["public"]["Tables"]["document_metadata_types"]["Row"];
+type DocumentMetadataTypeRow = Database["public"]["Tables"]["document_types"]["Row"];
 type DocumentMetadataSchoolRow =
-  Database["public"]["Tables"]["document_metadata_schools"]["Row"];
+  Database["public"]["Tables"]["schools"]["Row"];
 type DocumentMetadataCourseRow =
-  Database["public"]["Tables"]["document_metadata_courses"]["Row"];
+  Database["public"]["Tables"]["courses"]["Row"];
 
 const DEFAULT_MAX_SEMESTERS_BY_LEVEL: Record<MetadataOptionLevel, number> = {
   UG: 8,
@@ -96,7 +96,7 @@ function rowsToAdminMetadataOptions(
   metadataCourses: DocumentMetadataCourseRow[]
 ): AdminMetadataOptions {
   const schoolCodeById = new Map(
-    metadataSchools.map((school) => [school.id, school.course_key])
+    metadataSchools.map((school) => [school.code, school.code])
   );
 
   return {
@@ -105,19 +105,19 @@ function rowsToAdminMetadataOptions(
       label: row.name,
     })),
     schools: metadataSchools.map((row) => ({
-      key: row.course_key,
+      key: row.code,
       label: row.name,
     })),
     courses: metadataCourses
       .map((row) => {
-        const schoolCode = schoolCodeById.get(row.school_id);
+        const schoolCode = schoolCodeById.get(row.school_code);
         if (!schoolCode) {
           return null;
         }
 
         return {
           schoolKey: schoolCode,
-          key: row.course_code,
+          key: row.code,
           label: row.name,
           level: parseLevel(row.academic_level),
           maxSemesters: resolveMaxSemesters(
@@ -142,17 +142,17 @@ async function listMetadataCatalogRows(
 > {
   const [typesResult, schoolsResult, coursesResult] = await Promise.all([
     admin
-      .from("document_metadata_types")
-      .select("id, code, name, created_at, updated_at")
+      .from("document_types")
+      .select("code, code, name, created_at, updated_at")
       .order("created_at", { ascending: false }),
     admin
-      .from("document_metadata_schools")
-      .select("id, course_key, name, created_at, updated_at")
+      .from("schools")
+      .select("code, code, name, created_at, updated_at")
       .order("created_at", { ascending: false }),
     admin
-      .from("document_metadata_courses")
+      .from("courses")
       .select(
-        "id, school_id, course_code, name, academic_level, max_semesters, created_at, updated_at"
+        "code, school_code, name, academic_level, max_semesters, created_at, updated_at"
       )
       .order("created_at", { ascending: false }),
   ]);
@@ -180,21 +180,21 @@ export async function replaceAdminMetadataOptions(
   admin: SupabaseClient<Database>,
   options: AdminMetadataOptions
 ): Promise<void> {
-  const metadataTypeRows: TablesInsert<"document_metadata_types">[] =
+  const metadataTypeRows: TablesInsert<"document_types">[] =
     options.documentTypes.map((item) => ({
       code: normalizeCode(item.key),
       name: normalizeName(item.label),
     }));
 
-  const metadataSchoolRows: TablesInsert<"document_metadata_schools">[] =
+  const metadataSchoolRows: TablesInsert<"schools">[] =
     options.schools.map((item) => ({
-      course_key: normalizeCode(item.key),
+      code: normalizeCode(item.key),
       name: normalizeName(item.label),
     }));
 
   if (metadataTypeRows.length > 0) {
     const { error: upsertTypesError } = await admin
-      .from("document_metadata_types")
+      .from("document_types")
       .upsert(metadataTypeRows, { onConflict: "code" });
 
     if (upsertTypesError) {
@@ -203,8 +203,8 @@ export async function replaceAdminMetadataOptions(
   }
 
   const { data: currentTypes, error: currentTypesError } = await admin
-    .from("document_metadata_types")
-    .select("id, code");
+    .from("document_types")
+    .select("code, code");
 
   if (currentTypesError) {
     throw currentTypesError;
@@ -213,13 +213,13 @@ export async function replaceAdminMetadataOptions(
   const typeCodes = new Set(metadataTypeRows.map((row) => row.code));
   const typeIdsToDelete = (currentTypes ?? [])
     .filter((row) => !typeCodes.has(row.code))
-    .map((row) => row.id);
+    .map((row) => row.code);
 
   if (typeIdsToDelete.length > 0) {
     const { error: deleteTypesError } = await admin
-      .from("document_metadata_types")
+      .from("document_types")
       .delete()
-      .in("id", typeIdsToDelete);
+      .in("code", typeIdsToDelete);
 
     if (deleteTypesError) {
       throw deleteTypesError;
@@ -228,8 +228,8 @@ export async function replaceAdminMetadataOptions(
 
   if (metadataSchoolRows.length > 0) {
     const { error: upsertSchoolsError } = await admin
-      .from("document_metadata_schools")
-      .upsert(metadataSchoolRows, { onConflict: "course_key" });
+      .from("schools")
+      .upsert(metadataSchoolRows, { onConflict: "code" });
 
     if (upsertSchoolsError) {
       throw upsertSchoolsError;
@@ -237,23 +237,23 @@ export async function replaceAdminMetadataOptions(
   }
 
   const { data: currentSchools, error: currentSchoolsError } = await admin
-    .from("document_metadata_schools")
-    .select("id, course_key");
+    .from("schools")
+    .select("code, code");
 
   if (currentSchoolsError) {
     throw currentSchoolsError;
   }
 
-  const schoolCodes = new Set(metadataSchoolRows.map((row) => row.course_key));
+  const schoolCodes = new Set(metadataSchoolRows.map((row) => row.code));
   const schoolIdsToDelete = (currentSchools ?? [])
-    .filter((row) => !schoolCodes.has(row.course_key))
-    .map((row) => row.id);
+    .filter((row) => !schoolCodes.has(row.code))
+    .map((row) => row.code);
 
   if (schoolIdsToDelete.length > 0) {
     const { error: deleteSchoolsError } = await admin
-      .from("document_metadata_schools")
+      .from("schools")
       .delete()
-      .in("id", schoolIdsToDelete);
+      .in("code", schoolIdsToDelete);
 
     if (deleteSchoolsError) {
       throw deleteSchoolsError;
@@ -261,18 +261,18 @@ export async function replaceAdminMetadataOptions(
   }
 
   const { data: persistedSchools, error: persistedSchoolsError } = await admin
-    .from("document_metadata_schools")
-    .select("id, course_key");
+    .from("schools")
+    .select("code, code");
 
   if (persistedSchoolsError) {
     throw persistedSchoolsError;
   }
 
   const schoolIdByCode = new Map(
-    (persistedSchools ?? []).map((school) => [school.course_key, school.id])
+    (persistedSchools ?? []).map((school) => [school.code, school.code])
   );
 
-  const metadataCourseRows: TablesInsert<"document_metadata_courses">[] =
+  const metadataCourseRows: TablesInsert<"courses">[] =
     options.courses.map((item) => {
       const schoolCode = normalizeCode(item.schoolKey);
       const schoolId = schoolIdByCode.get(schoolCode);
@@ -282,8 +282,8 @@ export async function replaceAdminMetadataOptions(
       }
 
       return {
-        school_id: schoolId,
-        course_code: normalizeCode(item.key),
+        school_code: schoolId,
+        code: normalizeCode(item.key),
         name: normalizeName(item.label),
         academic_level: item.level,
         max_semesters: resolveMaxSemesters(item.level, item.maxSemesters),
@@ -292,8 +292,8 @@ export async function replaceAdminMetadataOptions(
 
   if (metadataCourseRows.length > 0) {
     const { error: upsertCoursesError } = await admin
-      .from("document_metadata_courses")
-      .upsert(metadataCourseRows, { onConflict: "school_id,course_code" });
+      .from("courses")
+      .upsert(metadataCourseRows, { onConflict: "code" });
 
     if (upsertCoursesError) {
       throw upsertCoursesError;
@@ -301,25 +301,25 @@ export async function replaceAdminMetadataOptions(
   }
 
   const { data: currentCourses, error: currentCoursesError } = await admin
-    .from("document_metadata_courses")
-    .select("id, school_id, course_code");
+    .from("courses")
+    .select("code, school_code");
 
   if (currentCoursesError) {
     throw currentCoursesError;
   }
 
   const courseKeys = new Set(
-    metadataCourseRows.map((row) => `${row.school_id}:${row.course_code}`)
+    metadataCourseRows.map((row) => `${row.school_code}:${row.code}`)
   );
   const courseIdsToDelete = (currentCourses ?? [])
-    .filter((row) => !courseKeys.has(`${row.school_id}:${row.course_code}`))
-    .map((row) => row.id);
+    .filter((row) => !courseKeys.has(`${row.school_code}:${row.code}`))
+    .map((row) => row.code);
 
   if (courseIdsToDelete.length > 0) {
     const { error: deleteCoursesError } = await admin
-      .from("document_metadata_courses")
+      .from("courses")
       .delete()
-      .in("id", courseIdsToDelete);
+      .in("code", courseIdsToDelete);
 
     if (deleteCoursesError) {
       throw deleteCoursesError;

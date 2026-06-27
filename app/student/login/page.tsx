@@ -1,15 +1,10 @@
 "use client";
 
-import { createBrowserClient } from "@/lib/supabase";
-import { Suspense, useState } from "react";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Button from "@/components/common/button";
+import { useMicrosoftAuth } from "@/lib/use-microsoft-auth";
 
-function waitForNextPaint(): Promise<void> {
-  return new Promise((resolve) => {
-    requestAnimationFrame(() => resolve());
-  });
-}
 
 export default function StudentLoginPage() {
   return (
@@ -35,35 +30,11 @@ export default function StudentLoginPage() {
 }
 
 function StudentLoginInner() {
-  const [loading, setLoading] = useState(false);
+  const { login, loading } = useMicrosoftAuth();
   const searchParams = useSearchParams();
   const errorCode = searchParams.get("error");
   const authFailed = errorCode === "auth_failed";
   const sessionInitFailed = errorCode === "session_init_failed";
-
-  const handleMicrosoftLogin = async () => {
-    if (loading) return;
-
-    setLoading(true);
-
-    try {
-      // Ensure the loading animation is painted before navigation starts.
-      await waitForNextPaint();
-
-      const supabase = createBrowserClient();
-      const callbackUrl = new URL("/auth/callback", window.location.origin);
-
-      await supabase.auth.signInWithOAuth({
-        provider: "azure",
-        options: {
-          redirectTo: callbackUrl.toString(),
-          scopes: "openid email profile",
-        },
-      });
-    } catch {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
@@ -87,7 +58,7 @@ function StudentLoginInner() {
           </p>
         ) : null}
         <Button
-          onClick={handleMicrosoftLogin}
+          onClick={login}
           isLoading={loading}
           className="mt-8 flex w-full items-center justify-center gap-3 rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1a1a1a] cursor-pointer transition-colors"
         >

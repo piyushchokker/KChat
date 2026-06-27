@@ -146,14 +146,8 @@ export async function PATCH(req: Request, context: RouteContext) {
 
   // 4b. Add to cached_quries for Excel cache / query tracking
   const { error: cachedQueryError } = await admin.from("cached_quries").insert({
-    query: existingTicket.query,
-    answer: answer,
-    created_by: registrar.id,
-    metadata: {
-      source: "ticket_resolution",
-      ticket_id: id,
-      ticket_user_id: existingTicket.user_id,
-    },
+    query: ticket.query,
+    answer: resolveMessage,
   });
 
   if (cachedQueryError) {
@@ -193,7 +187,7 @@ export async function PATCH(req: Request, context: RouteContext) {
     console.error("Failed to fetch updated ticket:", fetchError);
   }
 
-  const user = updatedTicket?.users as { name: string; email: string; roll_number: string | null; course: string | null; school: string | null } | null;
+  const user = updatedTicket?.users as any;
 
   return NextResponse.json({
     ticket: {

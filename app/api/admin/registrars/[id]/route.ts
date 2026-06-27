@@ -9,7 +9,7 @@ type RegistrarUpdatePayload = {
   name?: string;
   email?: string;
   department?: string | null;
-  designation?: string | null;
+  
   is_allowed?: boolean;
 };
 
@@ -88,10 +88,7 @@ export async function PATCH(req: Request, context: RouteContext) {
     updates.department = department;
   }
 
-  const designation = normalizeNullableText(body.designation);
-  if (designation !== undefined) {
-    updates.designation = designation;
-  }
+  
 
   if (typeof body.is_allowed === "boolean") {
     updates.is_allowed = body.is_allowed;
@@ -106,7 +103,7 @@ export async function PATCH(req: Request, context: RouteContext) {
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq("id", id)
     .select(
-      "id, auth_id, email, name, role, department, designation, created_at, updated_at, is_allowed"
+      "id, auth_id, email, name, role, department, created_at, updated_at, is_allowed"
     )
     .single();
 

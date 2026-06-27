@@ -128,10 +128,10 @@ export default async function StudentChatHistoryPage(
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Student Chat History</h1>
               <p className="mt-1 text-sm text-gray-500">
-                {student.name} · {student.email}
+                {(student as any).name} · {(student as any).email}
               </p>
               <p className="mt-1 text-xs text-gray-500">
-                Roll: {student.roll_number || "-"} | Program: {student.program || "-"} | Department: {student.department || "-"}
+                Roll: {(student as any).roll_number || "-"} | Program: {(student as any).program || "-"} | Department: {(student as any).department || "-"}
               </p>
               <p className="mt-1 text-xs font-semibold text-blue-700">
                 Showing only the last {MAX_VISIBLE_CHATS} chats

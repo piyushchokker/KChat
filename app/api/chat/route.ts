@@ -46,8 +46,8 @@ type ResolvedAppUser = {
   roll_number: string | null;
   course: string | null;
   school: string | null;
-  department: string | null;
-  program: string | null;
+  
+  
 };
 
 function shouldRaiseStudentTicket(response: StreamedAiResponse): boolean {
@@ -150,9 +150,7 @@ async function raiseStudentTicket(
           roll_number: student.roll_number,
           student_course: student.course ?? student.program,
           student_school: student.school,
-          department: student.department,
-          program: student.program,
-        },
+          },
         created_at: nowIso,
       });
 
@@ -274,8 +272,8 @@ async function fetchWithRetry(
     roll_number: string | null;
     course: string | null;
     school: string | null;
-    department: string | null;
-    program: string | null;
+    
+    
   }
 ): Promise<Response> {
   const timeoutMs = getPositiveIntEnv(
@@ -437,7 +435,7 @@ export async function POST(req: Request) {
   // Get internal user
   const { data: user } = await admin
     .from("users")
-    .select("id, name, email, roll_number, course, school, department, program")
+    .select("id, name, email, roll_number, course_code, school_code, courses(name), schools(name)")
     .eq("auth_id", authUser.id)
     .single();
 
@@ -446,15 +444,13 @@ export async function POST(req: Request) {
   }
 
   let appUser: ResolvedAppUser = {
-    id: user.id,
-    name: user.name ?? authUser.user_metadata?.name ?? "Student",
-    email: user.email ?? authUser.email ?? null,
-    roll_number: user.roll_number ?? null,
+    id: (user as any).id,
+    name: (user as any).name ?? authUser.user_metadata?.name ?? "Student",
+    email: (user as any).email ?? authUser.email ?? null,
+    roll_number: (user as any).roll_number ?? null,
     course: user.course ?? user.program ?? null,
     school: user.school ?? null,
-    department: user.department ?? null,
-    program: user.program ?? user.course ?? null,
-  };
+    };
 
   if (!trimmedQuery) {
     return NextResponse.json(
@@ -501,7 +497,7 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (sessionConversation) {
-      if (sessionConversation.user_id !== user.id) {
+      if (sessionConversation.user_id !== (user as any).id) {
         return NextResponse.json(
           { error: "Session is not accessible" },
           { status: 403 }
@@ -536,7 +532,7 @@ export async function POST(req: Request) {
     const { data: conv, error: convError } = await admin
       .from("conversations")
       .insert({
-        user_id: user.id,
+        user_id: (user as any).id,
         title,
         ret_session_id: trimmedSessionId ?? null,
       })
@@ -544,6 +540,7 @@ export async function POST(req: Request) {
       .single();
 
     if (convError || !conv) {
+      console.error("[Chat API] Failed to create conversation:", convError);
       return NextResponse.json(
         { error: "Failed to create conversation" },
         { status: 500 }
@@ -558,7 +555,7 @@ export async function POST(req: Request) {
       .from("conversations")
       .select("id, ret_session_id")
       .eq("id", activeConversationId)
-      .eq("user_id", user.id)
+      .eq("user_id", (user as any).id)
       .single();
 
     if (!conv) {
@@ -589,7 +586,7 @@ export async function POST(req: Request) {
           updated_at: new Date().toISOString(),
         })
         .eq("id", activeConversationId)
-        .eq("user_id", user.id);
+        .eq("user_id", (user as any).id);
 
       if (attachSessionError) {
         return NextResponse.json(
@@ -659,9 +656,7 @@ export async function POST(req: Request) {
             roll_number: appUser.roll_number,
             course: appUser.course,
             school: appUser.school,
-            department: appUser.department,
-            program: appUser.program,
-          },
+            },
           (delta) => {
             if (firstDeltaMs === null) {
               firstDeltaMs = performance.now() - backendStart;
@@ -703,23 +698,6 @@ export async function POST(req: Request) {
         let raisedTicketInfo: { id: string | null; raised: boolean } | null = null;
 
         if (shouldRaiseTicket) {
-          if ((!appUser.course || !appUser.school) && appUser.roll_number) {
-            const { data: cachedProfile } = await admin
-              .from("student_profile_cache")
-              .select("course, school, department, student_email")
-              .eq("user_id", user.id)
-              .maybeSingle();
-
-            if (cachedProfile) {
-              appUser = {
-                ...appUser,
-                course: appUser.course ?? cachedProfile.course ?? null,
-                school: appUser.school ?? cachedProfile.school ?? null,
-                department: appUser.department ?? cachedProfile.department ?? null,
-                email: appUser.email ?? cachedProfile.student_email ?? null,
-              };
-            }
-          }
 
           raisedTicketInfo = await raiseStudentTicket(admin, worker, {
             student: appUser,
@@ -901,8 +879,8 @@ async function streamPythonBackend(
         roll_number: string | null;
         course: string | null;
         school: string | null;
-        department: string | null;
-        program: string | null;
+        
+        
       }
     | undefined,
   onDelta: (delta: string) => void,

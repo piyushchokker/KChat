@@ -10,7 +10,7 @@ type StudentUpdatePayload = {
   email?: string;
   roll_number?: string | null;
   department?: string | null;
-  designation?: string | null;
+  
   program?: string | null;
   is_allowed?: boolean;
 };
@@ -95,10 +95,7 @@ export async function PATCH(req: Request, context: RouteContext) {
     updates.department = department;
   }
 
-  const designation = normalizeNullableText(body.designation);
-  if (designation !== undefined) {
-    updates.designation = designation;
-  }
+  
 
   const program = normalizeNullableText(body.program);
   if (program !== undefined) {
@@ -118,7 +115,7 @@ export async function PATCH(req: Request, context: RouteContext) {
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq("id", id)
     .select(
-      "id, auth_id, email, name, role, roll_number, department, designation, program, created_at, updated_at, is_allowed"
+      "id, auth_id, email, name, role, roll_number, department, program, created_at, updated_at, is_allowed"
     )
     .single();
 

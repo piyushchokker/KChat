@@ -17,7 +17,7 @@ export async function GET() {
 
   const { data, error } = await admin
     .from("users")
-    .select("*")
+    .select("*, schools(name), courses(name)")
     .eq("auth_id", user.id)
     .single();
 
@@ -44,7 +44,7 @@ export async function PATCH(req: Request) {
   }
 
   const body = await req.json();
-  const allowedFields = ["program", "department", "designation", "name"];
+  const allowedFields = ["course_code", "school_code", "name"];
   const updates: Record<string, string> = {};
 
   for (const field of allowedFields) {
@@ -63,7 +63,7 @@ export async function PATCH(req: Request) {
     .from("users")
     .update(updates)
     .eq("auth_id", user.id)
-    .select()
+    .select("*, schools(name), courses(name)")
     .single();
 
   if (error) {

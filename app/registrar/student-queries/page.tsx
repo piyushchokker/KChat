@@ -53,7 +53,7 @@ export default async function StudentQueriesPage() {
   const { data: cachedQueries } = await admin
     .from("cached_quries")
     .select(
-      "id, query, answer, created_at, created_by, created_by_user:users!cached_quries_created_by_fkey(name, email)"
+      "id, query, answer, created_at"
     )
     .order("created_at", { ascending: false })
     .limit(500);

@@ -12,7 +12,7 @@ type StudentRecord = {
   role: string;
   roll_number: string | null;
   department: string | null;
-  designation: string | null;
+  
   program: string | null;
   created_at: string;
   updated_at: string;
@@ -24,7 +24,7 @@ type StudentEditForm = {
   email: string;
   roll_number: string;
   department: string;
-  designation: string;
+  
   program: string;
   is_allowed: boolean;
 };
@@ -35,7 +35,7 @@ function toEditForm(student: StudentRecord): StudentEditForm {
     email: student.email ?? "",
     roll_number: student.roll_number ?? "",
     department: student.department ?? "",
-    designation: student.designation ?? "",
+    
     program: student.program ?? "",
     is_allowed: Boolean(student.is_allowed),
   };
@@ -117,7 +117,7 @@ export default function StudentManagement({
         student.roll_number ?? "",
         student.program ?? "",
         student.department ?? "",
-        student.designation ?? "",
+        
         student.auth_id,
       ]
         .join(" ")
@@ -164,7 +164,7 @@ export default function StudentManagement({
       email: normalizedEmail,
       roll_number: form.roll_number.trim() || null,
       department: form.department.trim() || null,
-      designation: form.designation.trim() || null,
+      
       program: form.program.trim() || null,
       is_allowed: form.is_allowed,
     };

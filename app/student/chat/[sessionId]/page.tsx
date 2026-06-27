@@ -8,6 +8,7 @@ import {
 import { redirect } from "next/navigation";
 import StudentLayout from "@/components/layout/student-layout";
 import ChatContainer from "@/components/chatbot/chat-container";
+import StudentOnboardingModal from "@/components/forms/student-onboarding-modal";
 
 interface StudentChatSessionPageProps {
   params: Promise<{ sessionId: string }>;
@@ -64,21 +65,24 @@ export default async function StudentChatSessionPage(
   const rollNumber = extractRollNumberFromEmail(email);
   let imageUrl: string | undefined;
   let isBanned = false;
+  let existingUser: any = null;
+  let syncedProfile: any = null;
+  let isStudent = false;
 
   try {
     const admin = createAdminClient();
 
     const { data: existingByAuth } = await admin
       .from("users")
-      .select("id, auth_id, role, is_allowed, image_url, roll_number, course, school, program, department")
+      .select("id, auth_id, role, is_allowed, image_url, roll_number, school_code, course_code")
       .eq("auth_id", authUser.id)
       .maybeSingle();
 
-    let existingUser = existingByAuth;
+    existingUser = existingByAuth;
     if (!existingUser && email) {
       const { data: existingByEmail } = await admin
         .from("users")
-        .select("id, auth_id, role, is_allowed, image_url, roll_number, course, school, program, department")
+        .select("id, auth_id, role, is_allowed, image_url, roll_number, school_code, course_code")
         .ilike("email", email)
         .maybeSingle();
       existingUser = existingByEmail;
@@ -89,7 +93,7 @@ export default async function StudentChatSessionPage(
     }
 
     const role = existingUser?.role ?? "student";
-    const isStudent = role === "student";
+    isStudent = role === "student";
 
     const studentDetails = isStudent
       ? await resolveStudentDetailsByEmail(admin, email, rollNumber)
@@ -98,40 +102,24 @@ export default async function StudentChatSessionPage(
     const nextRollNumber = isStudent
       ? studentDetails?.rollNumber ?? rollNumber ?? existingUser?.roll_number ?? null
       : existingUser?.roll_number ?? null;
-    const nextCourse = isStudent
-      ? studentDetails?.course ?? existingUser?.course ?? existingUser?.program ?? null
-      : existingUser?.course ?? null;
-    const nextSchool = isStudent
-      ? studentDetails?.school ?? existingUser?.school ?? null
-      : existingUser?.school ?? null;
-    const nextDepartment = isStudent
-      ? studentDetails?.department ?? nextSchool ?? existingUser?.department ?? null
-      : existingUser?.department ?? null;
-    const nextProgram = isStudent
-      ? studentDetails?.course ?? existingUser?.program ?? null
-      : existingUser?.program ?? null;
+    
+    
+    
+    
 
     const syncPayload = {
       auth_id: authUser.id,
       email,
       name: studentDetails?.studentName ?? name,
       roll_number: nextRollNumber,
-      course: nextCourse,
-      school: nextSchool,
-      department: nextDepartment,
-      program: nextProgram,
     };
-
-    let syncedProfile:
-      | { id: string; image_url: string | null; is_allowed: boolean }
-      | null = null;
 
     if (existingUser) {
       const { data, error: syncError } = await admin
         .from("users")
         .update(syncPayload)
         .eq("id", existingUser.id)
-        .select("id, image_url, is_allowed")
+        .select("id, image_url, is_allowed, school_code, course_code")
         .single();
 
       if (syncError) {
@@ -147,7 +135,7 @@ export default async function StudentChatSessionPage(
           role,
           is_allowed: true,
         })
-        .select("id, image_url, is_allowed")
+        .select("id, image_url, is_allowed, school_code, course_code")
         .single();
 
       if (syncError) {
@@ -224,6 +212,9 @@ export default async function StudentChatSessionPage(
     redirect("/student/banned");
   }
 
+  const finalUser = syncedProfile ?? existingUser;
+  const needsOnboarding = isStudent && (!finalUser?.school_code || !finalUser?.course_code);
+
   return (
     <StudentLayout
       user={{
@@ -233,6 +224,9 @@ export default async function StudentChatSessionPage(
       }}
     >
       <ChatContainer initialRetSessionId={normalizedSessionId} />
+      {needsOnboarding && (
+        <StudentOnboardingModal />
+      )}
     </StudentLayout>
   );
 }

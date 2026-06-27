@@ -12,8 +12,8 @@ export type CachedQueryRow = {
   query: string;
   answer: string | null;
   created_at: string;
-  created_by?: string | null;
-  created_by_user?: CachedQueryUser;
+  
+  
 };
 
 function formatDateTime(value: string): string {

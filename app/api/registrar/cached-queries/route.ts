@@ -108,7 +108,7 @@ export async function POST(request: Request) {
     .from("cached_quries")
     .insert(insertRow)
     .select(
-      "id, query, answer, created_at, created_by, created_by_user:users!cached_quries_created_by_fkey(name, email)"
+      "id, query, answer, created_at"
     )
     .single();
 

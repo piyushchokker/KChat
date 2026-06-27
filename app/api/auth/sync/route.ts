@@ -27,10 +27,8 @@ type ExistingUser = {
   role: string;
   is_allowed: boolean;
   roll_number: string | null;
-  course: string | null;
-  school: string | null;
-  program: string | null;
-  department: string | null;
+  course_code: string | null;
+  school_code: string | null;
 };
 
 function isSameOriginMutation(req: Request): boolean {
@@ -99,7 +97,7 @@ export async function POST(req: Request) {
   // Check auth_id first so a synced registrar cannot be downgraded by email mismatch/casing issues.
   const { data: existingByAuth } = await admin
     .from("users")
-    .select("id, auth_id, role, is_allowed, roll_number, course, school, program, department")
+    .select("id, auth_id, role, is_allowed, roll_number, course_code, school_code")
     .eq("auth_id", user.id)
     .maybeSingle();
 
@@ -107,7 +105,7 @@ export async function POST(req: Request) {
   if (!existingUser) {
     const { data: existingByEmail } = await admin
       .from("users")
-      .select("id, auth_id, role, is_allowed, roll_number, course, school, program, department")
+      .select("id, auth_id, role, is_allowed, roll_number, course_code, school_code")
       .ilike("email", email)
       .maybeSingle();
     existingUser = existingByEmail;
@@ -132,17 +130,17 @@ export async function POST(req: Request) {
     ? studentDetails?.rollNumber ?? rollNumber ?? existingUser?.roll_number ?? null
     : existingUser?.roll_number ?? null;
   const resolvedCourse = isStudent
-    ? studentDetails?.course ?? existingUser?.course ?? existingUser?.program ?? null
-    : existingUser?.course ?? null;
+    ? studentDetails?.course ?? existingUser?.course_code ?? null
+    : existingUser?.course_code ?? null;
   const resolvedSchool = isStudent
-    ? studentDetails?.school ?? existingUser?.school ?? null
-    : existingUser?.school ?? null;
+    ? studentDetails?.school ?? existingUser?.school_code ?? null
+    : existingUser?.school_code ?? null;
   const resolvedDepartment = isStudent
-    ? studentDetails?.department ?? resolvedSchool ?? existingUser?.department ?? null
-    : existingUser?.department ?? null;
+    ? studentDetails?.department ?? resolvedSchool ?? null
+    : null;
   const resolvedProgram = isStudent
-    ? studentDetails?.course ?? existingUser?.program ?? null
-    : existingUser?.program ?? null;
+    ? studentDetails?.course ?? null
+    : null;
 
   const userPayload = {
     auth_id: user.id,
@@ -151,10 +149,10 @@ export async function POST(req: Request) {
     role,
     is_allowed: isAllowed,
     roll_number: resolvedRollNumber,
-    course: resolvedCourse,
-    school: resolvedSchool,
-    department: resolvedDepartment,
-    program: resolvedProgram,
+    course_code: resolvedCourse,
+    school_code: resolvedSchool,
+    
+    
     image_url: meta.avatar_url ?? null,
   };
 

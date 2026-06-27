@@ -62,7 +62,7 @@ const metadataSchema = z
     school: z.string().trim().max(120).optional().nullable(),
     course: z.string().trim().max(160).optional().nullable(),
     semester: z.string().trim().max(50).optional().nullable(),
-    keywords: z.array(z.string().trim().min(1).max(50)).max(30).default([]),
+    
   })
   .refine((m) => {
     const fromNoExpiry = m.effectiveFrom === NO_EXPIRY_VALUE;
@@ -534,13 +534,13 @@ export async function POST(req: Request) {
       file_url: urlData.publicUrl,
       file_size: file.size,
       storage_path: storagePath,
-      document_type: metadata.documentType,
-      school: metadata.school || null,
-      course: metadata.course || null,
+      type_code: metadata.documentType,
+      school_code: metadata.school || null,
+      course_code: metadata.course || null,
       semester: metadata.semester || null,
       effective_from: effectiveDates.dbEffectiveFrom,
       effective_till: effectiveDates.dbEffectiveTill,
-      keywords: metadata.keywords || [],
+      
       issuing_authority: metadata.issuingAuthority,
       uploaded_by: user.id,
     };
@@ -631,7 +631,7 @@ export async function POST(req: Request) {
       metadata: {
         title: metadata.title,
         file_name: file.name,
-        document_type: metadata.documentType,
+        type_code: metadata.documentType,
       },
     });
 
@@ -640,13 +640,13 @@ export async function POST(req: Request) {
       file: null,
       metadata: {
         title: doc.title,
-        documentType: doc.document_type,
-        school: doc.school,
-        course: doc.course,
+        type_id: doc.type_id,
+        school_code: doc.school_code,
+        course_code: doc.course_code,
         semester: doc.semester,
         effectiveFrom: effectiveDates.isNoExpiry ? NO_EXPIRY_VALUE : doc.effective_from,
         effectiveTill: effectiveDates.isNoExpiry ? NO_EXPIRY_VALUE : doc.effective_till,
-        keywords: doc.keywords,
+        
         issuingAuthority: doc.issuing_authority,
       },
       uploadedAt: doc.created_at,
@@ -692,7 +692,7 @@ export async function GET(req: Request) {
   const isPrivilegedUser =
     currentUser.role === "registrar" || currentUser.role === "admin";
   const studentSelect =
-    "id, title, file_name, file_url, file_size, document_type, school, course, semester, effective_from, effective_till, keywords, issuing_authority, created_at, updated_at";
+    "id, title, file_name, file_url, file_size, type_code, school_code, course_code, semester, effective_from, effective_till, issuing_authority, created_at, updated_at";
   const registrarSelect =
     `${studentSelect}, storage_path, uploaded_by, uploaded_by_user:users!documents_uploaded_by_fkey(name, email)`;
   const selectColumns = isPrivilegedUser ? registrarSelect : studentSelect;
@@ -704,13 +704,13 @@ export async function GET(req: Request) {
 
   // Filters
   const docType = searchParams.get("type");
-  if (docType) query = query.eq("document_type", docType);
+  if (docType) query = query.eq("type_code", docType);
 
   const library = searchParams.get("library");
   if (library) query = query.eq("library_type", library);
 
   const school = searchParams.get("school");
-  if (school) query = query.eq("school", school);
+  if (school) query = query.eq("school_code", school);
 
   const visibility = searchParams.get("visibility");
   if (visibility) query = query.eq("visibility", visibility);

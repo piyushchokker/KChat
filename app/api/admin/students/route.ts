@@ -38,14 +38,14 @@ export async function GET(req: Request) {
   let query = admin
     .from("users")
     .select(
-      "id, auth_id, email, name, role, roll_number, department, designation, program, created_at, updated_at, is_allowed"
+      "id, auth_id, email, name, role, roll_number, course_code, school_code, created_at, updated_at, is_allowed"
     )
     .eq("role", "student")
     .order("created_at", { ascending: false });
 
   if (search) {
     query = query.or(
-      `name.ilike.%${search}%,email.ilike.%${search}%,roll_number.ilike.%${search}%,program.ilike.%${search}%,department.ilike.%${search}%,designation.ilike.%${search}%`
+      `name.ilike.%${search}%,email.ilike.%${search}%,roll_number.ilike.%${search}%`
     );
   }
 

@@ -10,7 +10,7 @@ type RegistrarRecord = {
   name: string;
   role: string;
   department: string | null;
-  designation: string | null;
+  
   created_at: string;
   updated_at: string;
   is_allowed: boolean;
@@ -20,7 +20,7 @@ type RegistrarEditForm = {
   name: string;
   email: string;
   department: string;
-  designation: string;
+  
   is_allowed: boolean;
 };
 
@@ -29,7 +29,7 @@ function toEditForm(registrar: RegistrarRecord): RegistrarEditForm {
     name: registrar.name ?? "",
     email: registrar.email ?? "",
     department: registrar.department ?? "",
-    designation: registrar.designation ?? "",
+    
     is_allowed: Boolean(registrar.is_allowed),
   };
 }
@@ -95,7 +95,7 @@ export default function RegistrarManagement() {
         registrar.name,
         registrar.email,
         registrar.department ?? "",
-        registrar.designation ?? "",
+        
         registrar.auth_id,
       ]
         .join(" ")
@@ -141,7 +141,7 @@ export default function RegistrarManagement() {
       name: normalizedName,
       email: normalizedEmail,
       department: form.department.trim() || null,
-      designation: form.designation.trim() || null,
+      
       is_allowed: form.is_allowed,
     };
 
@@ -188,7 +188,7 @@ export default function RegistrarManagement() {
             type="text"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by name, email, department or designation"
+            placeholder="Search by name, email, or department"
             className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm text-gray-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
           <Button
@@ -219,7 +219,7 @@ export default function RegistrarManagement() {
                 <h3 className="text-base font-semibold text-gray-900">{registrar.name}</h3>
                 <p className="text-sm text-gray-600">{registrar.email}</p>
                 <p className="mt-1 text-xs text-gray-500">
-                  Department: {registrar.department || "-"} | Designation: {registrar.designation || "-"}
+                  Department: {registrar.department || "-"} 
                 </p>
               </div>
 

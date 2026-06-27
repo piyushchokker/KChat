@@ -1,18 +1,12 @@
 "use client";
 
-import { createBrowserClient } from "@/lib/supabase";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Button from "@/components/common/button";
-
-function waitForNextPaint(): Promise<void> {
-  return new Promise((resolve) => {
-    requestAnimationFrame(() => resolve());
-  });
-}
+import { useMicrosoftAuth } from "@/lib/use-microsoft-auth";
 
 export default function HomeClient() {
-  const [loading, setLoading] = useState(false);
+  const { login, loading } = useMicrosoftAuth();
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -31,29 +25,6 @@ export default function HomeClient() {
       });
     }
   }, []);
-
-  const handleMicrosoftLogin = async () => {
-    if (loading) return;
-
-    setLoading(true);
-
-    const supabase = createBrowserClient();
-
-    try {
-      // Ensure the loading animation is painted before navigation starts.
-      await waitForNextPaint();
-
-      await supabase.auth.signInWithOAuth({
-        provider: "azure",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          scopes: "openid email profile User.Read",
-        },
-      });
-    } catch {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4 bg-gray-50">
@@ -74,7 +45,7 @@ export default function HomeClient() {
         {/* Microsoft Sign In */}
         <div className="mt-8 flex flex-col gap-3">
           <Button
-            onClick={handleMicrosoftLogin}
+            onClick={login}
             isLoading={loading}
             className="flex w-full items-center justify-center gap-3 rounded-lg bg-[#2f2f2f] px-4 py-3 text-sm font-semibold text-white hover:bg-[#1a1a1a] cursor-pointer transition-colors"
           >

@@ -138,8 +138,7 @@ export default function CachedQueriesPanel({
     if (!needle) return queries;
 
     return queries.filter((row) => {
-      const haystack =
-        `${row.query} ${row.answer ?? ""} ${row.created_by_user?.name ?? ""} ${row.created_by_user?.email ?? ""}`.toLowerCase();
+      const haystack = `${row.query} ${row.answer ?? ""}`.toLowerCase();
       return haystack.includes(needle);
     });
   }, [filter, queries]);
@@ -388,7 +387,6 @@ export default function CachedQueriesPanel({
             <thead className="sticky top-0 bg-gray-50">
               <tr className="border-b border-gray-200">
                 <th className="px-4 py-3 font-semibold text-gray-700">Created</th>
-                <th className="px-4 py-3 font-semibold text-gray-700">User</th>
                 <th className="px-4 py-3 font-semibold text-gray-700">Query</th>
                 <th className="px-4 py-3 font-semibold text-gray-700">Answer</th>
               </tr>
@@ -396,7 +394,7 @@ export default function CachedQueriesPanel({
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-10 text-center text-gray-400">
+                  <td colSpan={3} className="px-4 py-10 text-center text-gray-400">
                     No cached queries found.
                   </td>
                 </tr>
@@ -406,10 +404,7 @@ export default function CachedQueriesPanel({
                     <td className="px-4 py-3 whitespace-nowrap text-gray-600">
                       {formatDateTime(row.created_at)}
                     </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      <div className="font-medium">{row.created_by_user?.name ?? "—"}</div>
-                      <div className="text-xs text-gray-500">{row.created_by_user?.email ?? ""}</div>
-                    </td>
+
                     <td className="px-4 py-3 text-gray-800">
                       <div className="max-w-[460px] whitespace-pre-wrap break-words">
                         {row.query}

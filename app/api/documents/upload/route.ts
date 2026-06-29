@@ -640,7 +640,7 @@ export async function POST(req: Request) {
       file: null,
       metadata: {
         title: doc.title,
-        type_id: doc.type_id,
+        type_code: doc.type_code,
         school_code: doc.school_code,
         course_code: doc.course_code,
         semester: doc.semester,

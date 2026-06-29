@@ -32,7 +32,7 @@ function sanitizeMetadataForOptions(
   const next: DocumentMetadata = { ...metadata };
 
   const documentTypeValues = options.documentTypes.map((item) => item.value);
-  if (documentTypeValues.length > 0 && !documentTypeValues.includes(next.documentType)) {
+  if (documentTypeValues.length > 0 && (!next.documentType || !documentTypeValues.includes(next.documentType as string))) {
     next.documentType = documentTypeValues[0];
   }
 

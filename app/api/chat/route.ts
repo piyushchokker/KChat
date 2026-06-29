@@ -148,7 +148,7 @@ async function raiseStudentTicket(
           student_name: student.name,
           student_email: student.email,
           roll_number: student.roll_number,
-          student_course: student.course ?? student.program,
+          student_course: student.course,
           student_school: student.school,
           },
         created_at: nowIso,
@@ -448,8 +448,8 @@ export async function POST(req: Request) {
     name: (user as any).name ?? authUser.user_metadata?.name ?? "Student",
     email: (user as any).email ?? authUser.email ?? null,
     roll_number: (user as any).roll_number ?? null,
-    course: user.course ?? user.program ?? null,
-    school: user.school ?? null,
+    course: user.courses?.name ?? user.course_code ?? null,
+    school: user.schools?.name ?? user.school_code ?? null,
     };
 
   if (!trimmedQuery) {

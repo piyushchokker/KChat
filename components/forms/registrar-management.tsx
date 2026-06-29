@@ -295,21 +295,7 @@ export default function RegistrarManagement() {
                     />
                   </div>
 
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">
-                      Designation
-                    </label>
-                    <input
-                      type="text"
-                      value={form.designation}
-                      onChange={(event) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, designation: event.target.value } : prev
-                        )
-                      }
-                      className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm text-gray-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </div>
+
                 </div>
 
                 <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700">

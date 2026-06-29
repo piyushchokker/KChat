@@ -110,7 +110,7 @@ function rowsToAdminMetadataOptions(
     })),
     courses: metadataCourses
       .map((row) => {
-        const schoolCode = schoolCodeById.get(row.school_code);
+        const schoolCode = row.school_code ? schoolCodeById.get(row.school_code) : undefined;
         if (!schoolCode) {
           return null;
         }

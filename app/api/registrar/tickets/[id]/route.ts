@@ -146,8 +146,8 @@ export async function PATCH(req: Request, context: RouteContext) {
 
   // 4b. Add to cached_quries for Excel cache / query tracking
   const { error: cachedQueryError } = await admin.from("cached_quries").insert({
-    query: ticket.query,
-    answer: resolveMessage,
+    query: existingTicket.query,
+    answer: answer,
   });
 
   if (cachedQueryError) {
